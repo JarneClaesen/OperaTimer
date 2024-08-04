@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sound_mode/sound_mode.dart';
+import 'package:sound_mode/utils/ringer_mode_statuses.dart';
 import '../providers/timer_provider.dart';
 import '../providers/brightness_provider.dart';
 import '../widgets/glowing_borders.dart';
@@ -12,11 +14,14 @@ class TimerScreen extends StatefulWidget {
 }
 
 class _TimerScreenState extends State<TimerScreen> {
+  bool _isNormalMode = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<TimerProvider>(context, listen: false).setOnTimerScreen(true);
+      _checkSoundMode();
     });
   }
 
@@ -24,6 +29,17 @@ class _TimerScreenState extends State<TimerScreen> {
   void dispose() {
     Provider.of<TimerProvider>(context, listen: false).setOnTimerScreen(false);
     super.dispose();
+  }
+
+  Future<void> _checkSoundMode() async {
+    try {
+      final ringerStatus = await SoundMode.ringerModeStatus;
+      setState(() {
+        _isNormalMode = ringerStatus == RingerModeStatus.normal;
+      });
+    } catch (e) {
+      print("Failed to get ringer status: $e");
+    }
   }
 
   @override
@@ -41,6 +57,51 @@ class _TimerScreenState extends State<TimerScreen> {
               children: [
                 Column(
                   children: [
+                    if (_isNormalMode)
+                      Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.tertiaryContainer,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning_rounded, color: Theme.of(context).colorScheme.onTertiaryContainer),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Your device is not in silent or vibrate mode. You may disturb the performance.',
+                                    style: TextStyle(color: Theme.of(context).colorScheme.onTertiaryContainer),
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.onTertiaryContainer.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Check Again',
+                                      style: TextStyle(color: Theme.of(context).colorScheme.onTertiaryContainer),
+                                    ),
+                                    onPressed: _checkSoundMode,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     Expanded(
                       child: ListView.builder(
                         itemCount: timerProvider.playTimes.length,
@@ -76,6 +137,7 @@ class _TimerScreenState extends State<TimerScreen> {
       ),
     );
   }
+
 }
 
 class TimelineItem extends StatelessWidget {
@@ -141,7 +203,13 @@ class TimerControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(16),
-      color: Theme.of(context).colorScheme.surfaceContainer,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -170,7 +238,30 @@ class TimerControls extends StatelessWidget {
                         size: 20,
                       ),
                       onPressed: () {
-                        timerProvider.stopTimer();
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: Text('Reset Timer'),
+                              content: Text('Are you sure you want to reset the timer?'),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: Text('Cancel'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                                TextButton(
+                                  child: Text('Reset'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                    timerProvider.stopTimer();
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        );
                       },
                     ),
                   ),
@@ -207,6 +298,7 @@ class TimerControls extends StatelessWidget {
     );
   }
 }
+
 
 class BrightnessSlider extends StatelessWidget {
   final BrightnessProvider brightnessProvider;
