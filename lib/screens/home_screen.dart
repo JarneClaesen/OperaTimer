@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
+import 'package:orchestra_timer/screens/settings_screen.dart';
 import 'package:provider/provider.dart';
 import '../models/opera.dart';
 import '../providers/timer_provider.dart';
@@ -83,18 +84,28 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Opera Timer'),
-        actions: _selectedIndexes.isNotEmpty
-            ? [
-          IconButton(
-            icon: Icon(Icons.edit),
-            onPressed: _editSelected,
-          ),
-          IconButton(
-            icon: Icon(Icons.delete),
-            onPressed: _deleteSelected,
-          ),
-        ]
-            : [],
+        actions: [
+          if (_selectedIndexes.isEmpty)
+            IconButton(
+              icon: Icon(Icons.settings),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SettingsScreen()),
+                );
+              },
+            ),
+          if (_selectedIndexes.isNotEmpty) ...[
+            IconButton(
+              icon: Icon(Icons.edit),
+              onPressed: _editSelected,
+            ),
+            IconButton(
+              icon: Icon(Icons.delete),
+              onPressed: _deleteSelected,
+            ),
+          ],
+        ],
       ),
       body: Consumer<TimerProvider>(
         builder: (context, timerProvider, child) {

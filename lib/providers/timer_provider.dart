@@ -1,14 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:hive/hive.dart';
 import '../services/background_service.dart';
 import '../services/notification_service.dart';
 
 class TimerProvider with ChangeNotifier {
+  static const String settingsBoxName = 'settings';
+  static const String warningTimeKey = 'warningTime';
+  static const String playDurationKey = 'playDuration';
+
   Timer? _timer;
   int _currentTime = 0;
-  int _warningTime = 60; // 1 minute before play time
-  int _playDuration = 10; // 10 seconds for play time message
+  int _warningTime = 60; // Default: 1 minute before play time
+  int _playDuration = 10; // Default: 10 seconds for play time message
   List<int> _playTimes = [];
   int _nextPlayIndex = 0;
   bool _isWarningActive = false;
@@ -17,6 +22,19 @@ class TimerProvider with ChangeNotifier {
   bool _isOnTimerScreen = false;
   final NotificationService _notificationService = NotificationService();
   String? _currentOperaName;
+  List<bool> _hasWarnedForPlayTimes = [];
+
+  TimerProvider() {
+    _notificationService.initialize();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final box = await Hive.openBox(settingsBoxName);
+    _warningTime = box.get(warningTimeKey, defaultValue: 60);
+    _playDuration = box.get(playDurationKey, defaultValue: 10);
+    notifyListeners();
+  }
 
   int get currentTime => _currentTime;
   bool get isWarning => _isWarningActive;
@@ -24,8 +42,9 @@ class TimerProvider with ChangeNotifier {
   bool get isRunning => _isRunning;
   List<int> get playTimes => _playTimes;
   bool get isOnTimerScreen => _isOnTimerScreen;
-  List<bool> _hasWarnedForPlayTimes = [];
   String? get currentOperaName => _currentOperaName;
+  int get warningTime => _warningTime;
+  int get playDuration => _playDuration;
 
   void setOnTimerScreen(bool value) {
     _isOnTimerScreen = value;
@@ -53,10 +72,6 @@ class TimerProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  TimerProvider() {
-    _notificationService.initialize();
-  }
-
   void setPlayTimes(List<int> playTimes) {
     if (!listEquals(_playTimes, playTimes)) {
       _playTimes = playTimes;
@@ -69,6 +84,20 @@ class TimerProvider with ChangeNotifier {
       _timer?.cancel();
       notifyListeners();
     }
+  }
+
+  Future<void> setWarningTime(int seconds) async {
+    _warningTime = seconds;
+    final box = await Hive.openBox(settingsBoxName);
+    await box.put(warningTimeKey, seconds);
+    notifyListeners();
+  }
+
+  Future<void> setPlayDuration(int seconds) async {
+    _playDuration = seconds;
+    final box = await Hive.openBox(settingsBoxName);
+    await box.put(playDurationKey, seconds);
+    notifyListeners();
   }
 
   Future<void> startTimer() async {
@@ -113,7 +142,7 @@ class TimerProvider with ChangeNotifier {
       final index = entry.key;
       final playTime = entry.value;
       final warningTime = now.add(Duration(seconds: playTime - _currentTime - _warningTime));
-      final message = '${_warningTime ~/ 60} minute${_warningTime >= 120 ? 's' : ''} until you have to play!';
+      final message = _formatWarningMessage(_warningTime);
       return {
         'index': index,
         'time': warningTime.toIso8601String(),
@@ -122,6 +151,23 @@ class TimerProvider with ChangeNotifier {
     }).toList();
 
     await BackgroundService.scheduleWarningTasks(warningTasks);
+  }
+
+  String _formatWarningMessage(int seconds) {
+    if (seconds < 60) {
+      return '$seconds second${seconds != 1 ? 's' : ''} until you have to play!';
+    } else {
+      final minutes = seconds ~/ 60;
+      final remainingSeconds = seconds % 60;
+
+      String message = '$minutes minute${minutes > 1 ? 's' : ''}';
+
+      if (remainingSeconds > 0) {
+        message += ' and $remainingSeconds second${remainingSeconds != 1 ? 's' : ''}';
+      }
+
+      return '$message until you have to play!';
+    }
   }
 
   void _checkWarningsAndPlayTimes() {
