@@ -213,9 +213,13 @@ class TimerControls extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '${timerProvider.currentTime ~/ 3600}:${(timerProvider.currentTime % 3600 ~/ 60).toString().padLeft(2, '0')}:${(timerProvider.currentTime % 60).toString().padLeft(2, '0')}',
-            style: TextStyle(fontSize: 48),
+          Consumer<TimerProvider>(
+            builder: (context, timerProvider, child) {
+              return Text(
+                '${timerProvider.currentTime ~/ 3600}:${(timerProvider.currentTime % 3600 ~/ 60).toString().padLeft(2, '0')}:${(timerProvider.currentTime % 60).toString().padLeft(2, '0')}',
+                style: TextStyle(fontSize: 48),
+              );
+            },
           ),
           SizedBox(height: 20),
           Stack(

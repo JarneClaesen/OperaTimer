@@ -24,6 +24,20 @@ class SettingsScreen extends StatelessWidget {
                 trailing: Text(timerProvider.playDuration.toString()),
                 onTap: () => _showNumberPicker(context, timerProvider, false),
               ),
+              SwitchListTile(
+                title: Text('Send Warning Notifications'),
+                value: timerProvider.sendWarningNotifications,
+                onChanged: (bool value) {
+                  timerProvider.setSendWarningNotifications(value);
+                },
+              ),
+              SwitchListTile(
+                title: Text('Send Play Time Notifications'),
+                value: timerProvider.sendPlayTimeNotifications,
+                onChanged: (bool value) {
+                  timerProvider.setSendPlayTimeNotifications(value);
+                },
+              ),
             ],
           );
         },

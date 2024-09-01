@@ -15,6 +15,10 @@ import 'package:provider/provider.dart';
 import 'package:orchestra_timer/widgets/shake_detector.dart';
 import 'package:orchestra_timer/widgets/floating_timer.dart';
 
+import '../services/background_service.dart' as bg_service;
+import '../services/background_timer_service.dart' as bg_timer_service;
+
+
 import 'models/opera.dart';
 import 'models/setlist.dart';
 
@@ -26,7 +30,8 @@ void main() async {
   await Hive.openBox<Opera>('operas');
 
   // Initialize background service
-  await BackgroundService.initialize();
+  await bg_service.BackgroundNotificationService.initialize();
+  await bg_timer_service.BackgroundTimerService.initialize();
 
   // Initialize notification service
   final notificationService = NotificationService();

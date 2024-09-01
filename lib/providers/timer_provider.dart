@@ -2,24 +2,30 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:hive/hive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/background_service.dart';
+import '../services/background_timer_service.dart';
 import '../services/notification_service.dart';
 
 class TimerProvider with ChangeNotifier {
   static const String settingsBoxName = 'settings';
   static const String warningTimeKey = 'warningTime';
   static const String playDurationKey = 'playDuration';
+  static const String currentTimeKey = 'currentTime';
+  static const String isRunningKey = 'isRunning';
+  static const String sendWarningNotificationsKey = 'sendWarningNotifications';
+  static const String sendPlayTimeNotificationsKey = 'sendPlayTimeNotifications';
 
-  Timer? _timer;
   int _currentTime = 0;
   int _warningTime = 60; // Default: 1 minute before play time
   int _playDuration = 10; // Default: 10 seconds for play time message
   List<int> _playTimes = [];
-  int _nextPlayIndex = 0;
   bool _isWarningActive = false;
   bool _isPlayTimeActive = false;
   bool _isRunning = false;
   bool _isOnTimerScreen = false;
+  bool _sendWarningNotifications = true;
+  bool _sendPlayTimeNotifications = true;
   final NotificationService _notificationService = NotificationService();
   String? _currentOperaName;
   List<bool> _hasWarnedForPlayTimes = [];
@@ -27,13 +33,39 @@ class TimerProvider with ChangeNotifier {
   TimerProvider() {
     _notificationService.initialize();
     _loadSettings();
+    _loadTimerState();
+    startPeriodicUpdate();
   }
 
   Future<void> _loadSettings() async {
     final box = await Hive.openBox(settingsBoxName);
     _warningTime = box.get(warningTimeKey, defaultValue: 60);
     _playDuration = box.get(playDurationKey, defaultValue: 10);
+    _sendWarningNotifications = box.get(sendWarningNotificationsKey, defaultValue: true);
+    _sendPlayTimeNotifications = box.get(sendPlayTimeNotificationsKey, defaultValue: true);
     notifyListeners();
+  }
+
+  Future<void> _loadTimerState() async {
+    final prefs = await SharedPreferences.getInstance();
+    _currentTime = prefs.getInt(currentTimeKey) ?? 0;
+    _isRunning = prefs.getBool(isRunningKey) ?? false;
+    if (_isRunning) {
+      _startBackgroundTimer();
+    }
+    notifyListeners();
+  }
+
+  Future<void> _saveTimerState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(currentTimeKey, _currentTime);
+    await prefs.setBool(isRunningKey, _isRunning);
+  }
+
+  void startPeriodicUpdate() {
+    Timer.periodic(Duration(seconds: 1), (timer) {
+      updateTimer();
+    });
   }
 
   int get currentTime => _currentTime;
@@ -45,6 +77,8 @@ class TimerProvider with ChangeNotifier {
   String? get currentOperaName => _currentOperaName;
   int get warningTime => _warningTime;
   int get playDuration => _playDuration;
+  bool get sendWarningNotifications => _sendWarningNotifications;
+  bool get sendPlayTimeNotifications => _sendPlayTimeNotifications;
 
   void setOnTimerScreen(bool value) {
     _isOnTimerScreen = value;
@@ -76,12 +110,11 @@ class TimerProvider with ChangeNotifier {
     if (!listEquals(_playTimes, playTimes)) {
       _playTimes = playTimes;
       _currentTime = 0;
-      _nextPlayIndex = 0;
       _isWarningActive = false;
       _isPlayTimeActive = false;
       _isRunning = false;
       _hasWarnedForPlayTimes = List.filled(playTimes.length, false);
-      _timer?.cancel();
+      _saveTimerState();
       notifyListeners();
     }
   }
@@ -100,40 +133,53 @@ class TimerProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setSendWarningNotifications(bool value) async {
+    _sendWarningNotifications = value;
+    final box = await Hive.openBox(settingsBoxName);
+    await box.put(sendWarningNotificationsKey, value);
+    notifyListeners();
+  }
+
+  Future<void> setSendPlayTimeNotifications(bool value) async {
+    _sendPlayTimeNotifications = value;
+    final box = await Hive.openBox(settingsBoxName);
+    await box.put(sendPlayTimeNotificationsKey, value);
+    notifyListeners();
+  }
+
   Future<void> startTimer() async {
     if (_isRunning) return;
     _isRunning = true;
     _checkWarningsAndPlayTimes();
+    await _saveTimerState();
     notifyListeners();
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-      _currentTime++;
-      _checkWarningsAndPlayTimes();
-      notifyListeners();
-    });
+    await BackgroundTimerService.startPeriodicTask();
+  }
 
-    // Schedule background tasks for all warning times
-    await _scheduleWarningTasks();
+  void _startBackgroundTimer() {
+    BackgroundTimerService.startPeriodicTask();
   }
 
   void pauseTimer() {
     if (!_isRunning) return;
     _isRunning = false;
-    _timer?.cancel();
+    _saveTimerState();
     notifyListeners();
+    BackgroundTimerService.stopPeriodicTask();
   }
 
   Future<void> stopTimer() async {
-    _timer?.cancel();
     _currentTime = 0;
-    _nextPlayIndex = 0;
     _isWarningActive = false;
     _isPlayTimeActive = false;
     _isRunning = false;
     _hasWarnedForPlayTimes = List.filled(_playTimes.length, false);
+    _saveTimerState();
     notifyListeners();
 
     // Cancel background tasks
-    await BackgroundService.cancelAllTasks();
+    await BackgroundNotificationService.cancelAllTasks();
+    await BackgroundTimerService.stopPeriodicTask();
   }
 
   Future<void> _scheduleWarningTasks() async {
@@ -150,7 +196,7 @@ class TimerProvider with ChangeNotifier {
       };
     }).toList();
 
-    await BackgroundService.scheduleWarningTasks(warningTasks);
+    await BackgroundNotificationService.scheduleWarningTasks(warningTasks);
   }
 
   String _formatWarningMessage(int seconds) {
@@ -183,12 +229,17 @@ class TimerProvider with ChangeNotifier {
         anyWarningActive = true;
         if (!_hasWarnedForPlayTimes[i]) {
           _hasWarnedForPlayTimes[i] = true;
-          // You can add any additional logic here if needed when a warning becomes active
+          if (_sendWarningNotifications) {
+            _notificationService.showNotification('Warning', 'You need to play in $_warningTime seconds');
+          }
         }
       }
       // Check for play time
       else if (_currentTime >= playTime && _currentTime < playTime + _playDuration) {
         anyPlayTimeActive = true;
+        if (_sendPlayTimeNotifications) {
+          _notificationService.showNotification('Play Time', 'It\'s time to play!');
+        }
       }
     }
 
@@ -196,5 +247,19 @@ class TimerProvider with ChangeNotifier {
     _isPlayTimeActive = anyPlayTimeActive;
 
     notifyListeners();
+  }
+
+  // This method will be called by the background service to update the timer
+  void updateTimer() async {
+    final prefs = await SharedPreferences.getInstance();
+    _currentTime = prefs.getInt(currentTimeKey) ?? _currentTime;
+    _isRunning = prefs.getBool(isRunningKey) ?? _isRunning;
+    if (_isRunning) {
+      _currentTime++;
+      await _saveTimerState();
+      _checkWarningsAndPlayTimes();
+      notifyListeners();
+      print('TimerProvider: Current time updated to $_currentTime');
+    }
   }
 }
