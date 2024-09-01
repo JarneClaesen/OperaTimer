@@ -229,8 +229,8 @@ class TimerControls extends StatelessWidget {
                 Positioned(
                   left: MediaQuery.of(context).size.width / 2 - 150,
                   child: Container(
-                    width: 40,
-                    height: 60,
+                    width: 50,
+                    height: 100,
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.tertiaryContainer,
                       shape: BoxShape.circle,
@@ -239,7 +239,7 @@ class TimerControls extends StatelessWidget {
                       icon: Icon(
                         Icons.refresh_rounded,
                         color: Theme.of(context).colorScheme.onTertiaryContainer,
-                        size: 20,
+                        size: 25,
                       ),
                       onPressed: () {
                         showDialog(

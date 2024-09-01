@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 import '../providers/timer_provider.dart';
 import 'package:numberpicker/numberpicker.dart';
 
@@ -10,8 +11,8 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('Settings'),
       ),
-      body: Consumer<TimerProvider>(
-        builder: (context, timerProvider, child) {
+      body: Consumer2<TimerProvider, ThemeProvider>(
+        builder: (context, timerProvider, themeProvider, child) {
           return ListView(
             children: [
               ListTile(
@@ -37,6 +38,13 @@ class SettingsScreen extends StatelessWidget {
                 onChanged: (bool value) {
                   timerProvider.setSendPlayTimeNotifications(value);
                 },
+              ),
+              ListTile(
+                title: Text('App Color'),
+                trailing: CircleAvatar(
+                  backgroundColor: themeProvider.currentColor,
+                ),
+                onTap: () => _showColorPicker(context, themeProvider),
               ),
             ],
           );
@@ -79,6 +87,44 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
           ],
+        );
+      },
+    );
+  }
+
+  void _showColorPicker(BuildContext context, ThemeProvider themeProvider) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Choose App Color'),
+          content: Container(
+            width: double.maxFinite,
+            child: GridView.builder(
+              shrinkWrap: true,
+              itemCount: themeProvider.predefinedColors.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                childAspectRatio: 1,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              itemBuilder: (context, index) {
+                return GestureDetector(
+                  onTap: () {
+                    themeProvider.setColor(themeProvider.predefinedColors[index]);
+                    Navigator.of(context).pop();
+                  },
+                  child: CircleAvatar(
+                    backgroundColor: themeProvider.predefinedColors[index],
+                    child: themeProvider.currentColor == themeProvider.predefinedColors[index]
+                        ? Icon(Icons.check, color: Colors.white)
+                        : null,
+                  ),
+                );
+              },
+            ),
+          ),
         );
       },
     );

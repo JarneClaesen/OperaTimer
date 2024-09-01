@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
+import 'package:orchestra_timer/providers/theme_provider.dart';
 import 'package:orchestra_timer/providers/timer_provider.dart';
 import 'package:orchestra_timer/providers/brightness_provider.dart';
 import 'package:orchestra_timer/screens/home_screen.dart';
@@ -42,17 +43,18 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (context) => TimerProvider()),
         ChangeNotifierProvider(create: (context) => BrightnessProvider()),
+        ChangeNotifierProvider(create: (context) => ThemeProvider()),
       ],
-      child: Consumer<BrightnessProvider>(
-        builder: (context, brightnessProvider, child) {
+      child: Consumer2<BrightnessProvider, ThemeProvider>(
+        builder: (context, brightnessProvider, themeProvider, child) {
           return MaterialApp(
             title: 'Orchestra Timer',
             theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
+              colorScheme: ColorScheme.fromSeed(seedColor: themeProvider.currentColor),
             ),
             darkTheme: ThemeData(
                 colorScheme: ColorScheme.fromSeed(
-                    seedColor: Color(0xFF800020), //Burgundy
+                    seedColor: themeProvider.currentColor, //Burgundy
                     brightness: Brightness.dark
                 )
             ),
