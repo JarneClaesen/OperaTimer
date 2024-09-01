@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/background_service.dart';
-import '../services/background_timer_service.dart';
+import '../services/foreground_timer_service.dart';
 import '../services/notification_service.dart';
 
 class TimerProvider with ChangeNotifier {
@@ -29,6 +28,8 @@ class TimerProvider with ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
   String? _currentOperaName;
   List<bool> _hasWarnedForPlayTimes = [];
+  List<bool> _hasNotifiedForPlayTimes = [];
+
 
   TimerProvider() {
     _notificationService.initialize();
@@ -50,9 +51,6 @@ class TimerProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _currentTime = prefs.getInt(currentTimeKey) ?? 0;
     _isRunning = prefs.getBool(isRunningKey) ?? false;
-    if (_isRunning) {
-      _startBackgroundTimer();
-    }
     notifyListeners();
   }
 
@@ -114,10 +112,12 @@ class TimerProvider with ChangeNotifier {
       _isPlayTimeActive = false;
       _isRunning = false;
       _hasWarnedForPlayTimes = List.filled(playTimes.length, false);
+      _hasNotifiedForPlayTimes = List.filled(playTimes.length, false);
       _saveTimerState();
       notifyListeners();
     }
   }
+
 
   Future<void> setWarningTime(int seconds) async {
     _warningTime = seconds;
@@ -153,11 +153,7 @@ class TimerProvider with ChangeNotifier {
     _checkWarningsAndPlayTimes();
     await _saveTimerState();
     notifyListeners();
-    await BackgroundTimerService.startPeriodicTask();
-  }
-
-  void _startBackgroundTimer() {
-    BackgroundTimerService.startPeriodicTask();
+    await ForegroundTimerService.startForegroundTask();
   }
 
   void pauseTimer() {
@@ -165,7 +161,7 @@ class TimerProvider with ChangeNotifier {
     _isRunning = false;
     _saveTimerState();
     notifyListeners();
-    BackgroundTimerService.stopPeriodicTask();
+    ForegroundTimerService.stopForegroundTask();
   }
 
   Future<void> stopTimer() async {
@@ -177,26 +173,8 @@ class TimerProvider with ChangeNotifier {
     _saveTimerState();
     notifyListeners();
 
-    // Cancel background tasks
-    await BackgroundNotificationService.cancelAllTasks();
-    await BackgroundTimerService.stopPeriodicTask();
-  }
-
-  Future<void> _scheduleWarningTasks() async {
-    final now = DateTime.now();
-    final warningTasks = _playTimes.asMap().entries.map((entry) {
-      final index = entry.key;
-      final playTime = entry.value;
-      final warningTime = now.add(Duration(seconds: playTime - _currentTime - _warningTime));
-      final message = _formatWarningMessage(_warningTime);
-      return {
-        'index': index,
-        'time': warningTime.toIso8601String(),
-        'message': message,
-      };
-    }).toList();
-
-    await BackgroundNotificationService.scheduleWarningTasks(warningTasks);
+    // Stop foreground task
+    await ForegroundTimerService.stopForegroundTask();
   }
 
   String _formatWarningMessage(int seconds) {
@@ -237,9 +215,16 @@ class TimerProvider with ChangeNotifier {
       // Check for play time
       else if (_currentTime >= playTime && _currentTime < playTime + _playDuration) {
         anyPlayTimeActive = true;
-        if (_sendPlayTimeNotifications) {
-          _notificationService.showNotification('Play Time', 'It\'s time to play!');
+        if (!_hasNotifiedForPlayTimes[i]) { // Add this check
+          _hasNotifiedForPlayTimes[i] = true; // Set the flag
+          if (_sendPlayTimeNotifications) {
+            _notificationService.showNotification('Play Time', 'It\'s time to play!');
+          }
         }
+      }
+      else {
+        // Reset the notification flag when outside the play time window
+        _hasNotifiedForPlayTimes[i] = false;
       }
     }
 
@@ -248,6 +233,7 @@ class TimerProvider with ChangeNotifier {
 
     notifyListeners();
   }
+
 
   // This method will be called by the background service to update the timer
   void updateTimer() async {
