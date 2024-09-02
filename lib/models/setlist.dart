@@ -11,4 +11,14 @@ class Setlist extends HiveObject {
   List<int> playTimes;
 
   Setlist({required this.partName, required this.playTimes});
+
+  Map<String, dynamic> toJson() => {
+    'partName': partName,
+    'playTimes': playTimes,
+  };
+
+  factory Setlist.fromJson(Map<String, dynamic> json) => Setlist(
+    partName: json['partName'],
+    playTimes: List<int>.from(json['playTimes']),
+  );
 }

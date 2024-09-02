@@ -109,60 +109,84 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Consumer<TimerProvider>(
         builder: (context, timerProvider, child) {
-          return ValueListenableBuilder(
-            valueListenable: Hive.box<Opera>('operas').listenable(),
-            builder: (context, Box<Opera> box, _) {
-              if (box.values.isEmpty) {
-                return Center(child: Text('No operas added yet.'));
-              }
+          return FutureBuilder<Box<Opera>>(
+            future: Hive.openBox<Opera>('operas'),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.done) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                return ValueListenableBuilder<Box<Opera>>(
+                  valueListenable: Hive.box<Opera>('operas').listenable(),
+                  builder: (context, box, _) {
+                    if (box.values.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No operas added yet.',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                      );
+                    }
 
-              return ListView.builder(
-                itemCount: box.values.length,
-                itemBuilder: (context, index) {
-                  final opera = box.getAt(index);
-                  final isSelected = _selectedIndexes.contains(index);
-                  final isPlaying = timerProvider.currentOperaName == opera!.name;
+                    return ListView.builder(
+                      itemCount: box.values.length,
+                      itemBuilder: (context, index) {
+                        final opera = box.getAt(index);
+                        final isSelected = _selectedIndexes.contains(index);
+                        final isPlaying = timerProvider.currentOperaName == opera?.name;
 
-                  return GestureDetector(
-                    onLongPress: () {
-                      _toggleSelection(index);
-                    },
-                    child: ListTile(
-                      leading: _selectedIndexes.isNotEmpty
-                          ? Checkbox(
-                        value: isSelected,
-                        onChanged: (value) {
-                          _toggleSelection(index);
-                        },
-                      )
-                          : null,
-                      title: Text(opera.name),
-                      trailing: isPlaying
-                          ? Icon(Icons.play_arrow_rounded, color: Theme.of(context).colorScheme.primary)
-                          : null,
-                      onTap: () {
-                        if (_selectedIndexes.isNotEmpty) {
-                          _toggleSelection(index);
-                        } else {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => OperaScreen(opera: opera),
+                        return GestureDetector(
+                          onLongPress: () => _toggleSelection(index),
+                          child: Card(
+                            margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: ListTile(
+                              leading: _selectedIndexes.isNotEmpty
+                                  ? Checkbox(
+                                value: isSelected,
+                                onChanged: (_) => _toggleSelection(index),
+                              )
+                                  : null,
+                              title: Text(
+                                opera?.name ?? 'Unknown Opera',
+                                style: TextStyle(
+                                  fontWeight: isPlaying ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                              trailing: isPlaying
+                                  ? Icon(
+                                Icons.play_arrow_rounded,
+                                color: Theme.of(context).colorScheme.primary,
+                              )
+                                  : null,
+                              onTap: () {
+                                if (_selectedIndexes.isNotEmpty) {
+                                  _toggleSelection(index);
+                                } else if (opera != null) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => OperaScreen(opera: opera),
+                                    ),
+                                  );
+                                }
+                              },
                             ),
-                          );
-                        }
+                          ),
+                        );
                       },
-                    ),
-                  );
-                },
-              );
+                    );
+                  },
+                );
+              } else {
+                return Center(child: CircularProgressIndicator());
+              }
             },
           );
         },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: 100.0), // Adjust this value as needed
+        padding: EdgeInsets.only(bottom: 100.0),
         child: FloatingActionButton(
           onPressed: () {
             Navigator.push(
@@ -171,8 +195,10 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
           child: Icon(Icons.add),
+          tooltip: 'Add Opera',
         ),
       ),
     );
   }
+
 }

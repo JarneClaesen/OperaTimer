@@ -27,7 +27,6 @@ void main() async {
   await Hive.initFlutter();
   Hive.registerAdapter(OperaAdapter());
   Hive.registerAdapter(SetlistAdapter());
-  await Hive.openBox<Opera>('operas');
 
   // Initialize foreground service
   await ForegroundTimerService.initialize();

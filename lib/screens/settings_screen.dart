@@ -1,5 +1,12 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../models/opera.dart';
 import '../providers/theme_provider.dart';
 import '../providers/timer_provider.dart';
 import 'package:numberpicker/numberpicker.dart';
@@ -74,11 +81,85 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 onTap: () => _showColorPicker(context, themeProvider),
               ),
+              Divider(),
+
+              ListTile(
+                title: Text('Export Opera Data'),
+                leading: Icon(Icons.upload_rounded),
+                onTap: () => _exportData(context),
+              ),
+              ListTile(
+                title: Text('Import Opera Data'),
+                leading: Icon(Icons.download_rounded),
+                onTap: () => _importData(context),
+              ),
             ],
           );
         },
       ),
     );
+  }
+
+  Future<void> _exportData(BuildContext context) async {
+    try {
+      final jsonString = await exportToJson();
+      final result = await FilePicker.platform.getDirectoryPath();
+      if (result != null) {
+        String formattedDateTime = DateFormat('ddMMyyyy_HHmmss').format(DateTime.now());
+        final fileName = 'OperaTimer_$formattedDateTime.json';
+        final filePath = '$result/$fileName';
+
+        final file = File(filePath);
+        await file.writeAsString(jsonString);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Data exported to $filePath')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error exporting data: $e')),
+      );
+    }
+  }
+
+  Future<void> _importData(BuildContext context) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+
+      if (result != null) {
+        File file = File(result.files.single.path!);
+        final jsonString = await file.readAsString();
+        await importFromJson(jsonString);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Data imported successfully')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error importing data: $e')),
+      );
+      print(e);
+    }
+  }
+
+  Future<String> exportToJson() async {
+    final box = Hive.box<Opera>('operas');
+    List<Map<String, dynamic>> jsonData = box.values.map((item) => item.toJson()).toList();
+    return jsonEncode(jsonData);
+  }
+
+  Future<void> importFromJson(String jsonString) async {
+    final box = Hive.box<Opera>('operas');
+    List<dynamic> jsonData = jsonDecode(jsonString);
+    List<Opera> operas = jsonData.map((item) => Opera.fromJson(item)).toList();
+    await box.clear(); // Clear existing data
+    for (var opera in operas) {
+      await box.add(opera);
+    }
   }
 
   void _showNumberPicker(BuildContext context, TimerProvider timerProvider, {bool isWarningTime = false, bool isJumpSeconds = false}) {

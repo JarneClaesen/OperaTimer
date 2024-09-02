@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../models/opera.dart';
 import '../models/setlist.dart';
+import '../services/hive_helper.dart';
 import '../widgets/time_input.dart';
 
 class AddOperaScreen extends StatefulWidget {
@@ -62,17 +63,15 @@ class _AddOperaScreenState extends State<AddOperaScreen> {
   void _saveOpera() async {
     if (_formKey.currentState!.validate()) {
       final operaName = _operaNameController.text;
-      final parts = <Setlist>[];
-
+      final List<Setlist> parts = [];
       for (int i = 0; i < _partNameControllers.length; i++) {
         final partName = _partNameControllers[i].text;
         final playTimes = _playTimes[i];
         parts.add(Setlist(partName: partName, playTimes: playTimes));
       }
-
       final newOpera = Opera(name: operaName, parts: parts);
-      final box = Hive.box<Opera>('operas');
 
+      final box = await HiveHelper.getOperasBox();
       if (widget.opera == null) {
         await box.add(newOpera);
       } else {
@@ -82,6 +81,7 @@ class _AddOperaScreenState extends State<AddOperaScreen> {
       Navigator.pop(context);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
