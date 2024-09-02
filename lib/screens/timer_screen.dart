@@ -232,7 +232,7 @@ class TimerControls extends StatelessWidget {
               if (timerProvider.isRunning || timerProvider.currentTime != 0)
                 Positioned(
                   top: 15,
-                  left: timerProvider.showJumpButtons ? 0 : 60,
+                  left: timerProvider.showJumpButtons ? 15 : 75,
                   child: Container(
                     width: 50,
                     height: 50,
@@ -279,7 +279,7 @@ class TimerControls extends StatelessWidget {
               if (timerProvider.showJumpButtons) ...[
                 // Rewind button
                 Positioned(
-                  left: 80,
+                  left: 100,
                   top: 15,
                   child: JumpButton(
                     icon: Icons.fast_rewind_rounded,
@@ -288,7 +288,7 @@ class TimerControls extends StatelessWidget {
                 ),
                 // Forward button
                 Positioned(
-                  right: 80,
+                  right: 100,
                   top: 15,
                   child: JumpButton(
                     icon: Icons.fast_forward_rounded,
