@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
@@ -45,8 +47,7 @@ class TimerTaskHandler extends TaskHandler {
 
       // Update the notification
       await FlutterForegroundTask.updateService(
-        notificationTitle: 'Orchestra Timer',
-        notificationText: 'Time: ${_formatTime(currentTime)}',
+        notificationTitle: _formatTime(currentTime),
       );
     }
   }
@@ -61,12 +62,33 @@ class TimerTaskHandler extends TaskHandler {
 }
 
 class ForegroundTimerService {
+  static Future<void> requestPermissions() async {
+    // Android 13+, you need to allow notification permission to display foreground service notification.
+    //
+    // iOS: If you need notification, ask for permission.
+    final NotificationPermission notificationPermissionStatus =
+    await FlutterForegroundTask.checkNotificationPermission();
+    if (notificationPermissionStatus != NotificationPermission.granted) {
+      await FlutterForegroundTask.requestNotificationPermission();
+    }
+
+    if (Platform.isAndroid) {
+      // Android 12+, there are restrictions on starting a foreground service.
+      //
+      // To restart the service on device reboot or unexpected problem, you need to allow below permission.
+      if (!await FlutterForegroundTask.isIgnoringBatteryOptimizations) {
+        // This function requires `android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` permission.
+        await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+      }
+    }
+  }
+
   static Future<void> initialize() async {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'orchestra_timer_channel',
-        channelName: 'Orchestra Timer Notifications',
-        channelDescription: 'Notifications for Orchestra Timer app',
+        channelId: 'opera_timer_channel',
+        channelName: 'Opera Timer Notifications',
+        channelDescription: 'Notifications for Opera Timer app',
         channelImportance: NotificationChannelImportance.LOW,
         priority: NotificationPriority.LOW,
       ),
@@ -90,8 +112,8 @@ class ForegroundTimerService {
       return result == ServiceRequestResult.success;
     } else {
       final result = await FlutterForegroundTask.startService(
-        notificationTitle: 'Orchestra Timer',
-        notificationText: 'Timer is running',
+        notificationTitle: 'Opera Timer',
+        notificationText: '',
         notificationIcon: const NotificationIconData(
           resType: ResourceType.mipmap,
           resPrefix: ResourcePrefix.ic,

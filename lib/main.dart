@@ -31,6 +31,8 @@ void main() async {
   // Initialize foreground service
   await ForegroundTimerService.initialize();
 
+  await ForegroundTimerService.requestPermissions();
+
   // Initialize notification service
   final notificationService = NotificationService();
   await notificationService.initialize();

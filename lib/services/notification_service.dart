@@ -34,8 +34,8 @@ class NotificationService {
   Future<void> showNotification(String title, String body) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
     AndroidNotificationDetails(
-      'orchestra_timer_alert_channel',
-      'Orchestra Timer Notifications',
+      'opera_timer_alert_channel',
+      'Opera Timer Notifications',
       importance: Importance.max,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
