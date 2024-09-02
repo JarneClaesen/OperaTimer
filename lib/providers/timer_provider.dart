@@ -33,6 +33,7 @@ class TimerProvider with ChangeNotifier {
   List<bool> _hasWarnedForPlayTimes = [];
   List<bool> _hasNotifiedForPlayTimes = [];
   DateTime? _startTime;
+  bool _showGlowingBorders = true;
 
 
   TimerProvider() {
@@ -49,6 +50,7 @@ class TimerProvider with ChangeNotifier {
     _sendWarningNotifications = box.get(sendWarningNotificationsKey, defaultValue: true);
     _sendPlayTimeNotifications = box.get(sendPlayTimeNotificationsKey, defaultValue: true);
     _jumpSeconds = box.get('jumpSeconds', defaultValue: 1);
+    _showGlowingBorders = box.get('showGlowingBorders', defaultValue: true);
     notifyListeners();
   }
 
@@ -92,6 +94,7 @@ class TimerProvider with ChangeNotifier {
   bool get sendWarningNotifications => _sendWarningNotifications;
   bool get sendPlayTimeNotifications => _sendPlayTimeNotifications;
   int get jumpSeconds => _jumpSeconds;
+  bool get showGlowingBorders => _showGlowingBorders;
 
   void setOnTimerScreen(bool value) {
     _isOnTimerScreen = value;
@@ -166,6 +169,13 @@ class TimerProvider with ChangeNotifier {
     _jumpSeconds = seconds;
     final box = await Hive.openBox(settingsBoxName);
     await box.put('jumpSeconds', seconds);
+    notifyListeners();
+  }
+
+  Future<void> setShowGlowingBorders(bool value) async {
+    _showGlowingBorders = value;
+    final box = await Hive.openBox(settingsBoxName);
+    await box.put('showGlowingBorders', value);
     notifyListeners();
   }
 

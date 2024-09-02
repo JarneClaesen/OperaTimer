@@ -44,6 +44,13 @@ class SettingsScreen extends StatelessWidget {
                   timerProvider.setSendPlayTimeNotifications(value);
                 },
               ),
+              SwitchListTile(
+                title: Text('Show Glowing Borders'),
+                value: timerProvider.showGlowingBorders,
+                onChanged: (bool value) {
+                  timerProvider.setShowGlowingBorders(value);
+                },
+              ),
               ListTile(
                 title: Text('App Color'),
                 trailing: CircleAvatar(

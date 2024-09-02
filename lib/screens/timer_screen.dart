@@ -122,7 +122,7 @@ class _TimerScreenState extends State<TimerScreen> {
                     BrightnessSlider(brightnessProvider: brightnessProvider),
                   ],
                 ),
-                if (timerProvider.isWarning || timerProvider.isPlayTime)
+                if (timerProvider.showGlowingBorders && (timerProvider.isWarning || timerProvider.isPlayTime))
                   Positioned.fill(
                     child: IgnorePointer(
                       child: GlowingBorders(
