@@ -329,19 +329,26 @@ class BrightnessSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       color: Theme.of(context).colorScheme.surfaceContainer,
       child: Row(
         children: [
           Icon(Icons.brightness_6_rounded),
           Expanded(
-            child: Slider(
-              value: brightnessProvider.brightness,
-              onChanged: (value) {
-                brightnessProvider.setBrightness(value);
-              },
-              min: 0.0,
-              max: 1.0,
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 1.0, // Make the track thinner
+                thumbShape: RoundSliderThumbShape(enabledThumbRadius: 8.0), // Make the thumb smaller
+                overlayShape: RoundSliderOverlayShape(overlayRadius: 26.0), // Adjust the overlay size
+              ),
+              child: Slider(
+                value: brightnessProvider.brightness,
+                onChanged: (value) {
+                  brightnessProvider.setBrightness(value);
+                },
+                min: 0.0,
+                max: 1.0,
+              ),
             ),
           ),
         ],
@@ -349,3 +356,4 @@ class BrightnessSlider extends StatelessWidget {
     );
   }
 }
+
