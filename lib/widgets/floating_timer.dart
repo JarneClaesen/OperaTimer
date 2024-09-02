@@ -21,7 +21,7 @@ class FloatingTimer extends StatelessWidget {
         final nextPlayTime = timerProvider.nextPlayTime;
 
         return Positioned(
-          bottom: 16,
+          bottom: 40,
           left: 16,
           right: 16,
           child: GestureDetector(

@@ -329,7 +329,7 @@ class BrightnessSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: EdgeInsets.only(left: 20, top: 4, right: 20, bottom: 40),
       color: Theme.of(context).colorScheme.surfaceContainer,
       child: Row(
         children: [
