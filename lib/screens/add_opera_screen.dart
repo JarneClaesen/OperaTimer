@@ -151,7 +151,7 @@ class _AddOperaScreenState extends State<AddOperaScreen> {
                         final seconds = time % 60;
                         return Chip(
                           label: Text('${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}'),
-                          deleteIcon: Icon(Icons.close),
+                          deleteIcon: Icon(Icons.close_rounded),
                           onDeleted: () => _removeTime(index, timeIndex),
                         );
                       }).toList(),

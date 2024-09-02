@@ -125,7 +125,7 @@ class SettingsScreen extends StatelessWidget {
                   child: CircleAvatar(
                     backgroundColor: themeProvider.predefinedColors[index],
                     child: themeProvider.currentColor == themeProvider.predefinedColors[index]
-                        ? Icon(Icons.check, color: Colors.white)
+                        ? Icon(Icons.check_rounded, color: Colors.white)
                         : null,
                   ),
                 );

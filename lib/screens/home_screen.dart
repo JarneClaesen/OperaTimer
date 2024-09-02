@@ -87,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           if (_selectedIndexes.isEmpty)
             IconButton(
-              icon: Icon(Icons.settings),
+              icon: Icon(Icons.settings_rounded),
               onPressed: () {
                 Navigator.push(
                   context,
@@ -97,11 +97,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           if (_selectedIndexes.isNotEmpty) ...[
             IconButton(
-              icon: Icon(Icons.edit),
+              icon: Icon(Icons.edit_rounded),
               onPressed: _editSelected,
             ),
             IconButton(
-              icon: Icon(Icons.delete),
+              icon: Icon(Icons.delete_rounded),
               onPressed: _deleteSelected,
             ),
           ],
@@ -138,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           : null,
                       title: Text(opera.name),
                       trailing: isPlaying
-                          ? Icon(Icons.play_arrow, color: Theme.of(context).colorScheme.primary)
+                          ? Icon(Icons.play_arrow_rounded, color: Theme.of(context).colorScheme.primary)
                           : null,
                       onTap: () {
                         if (_selectedIndexes.isNotEmpty) {

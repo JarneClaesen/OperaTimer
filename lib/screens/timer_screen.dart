@@ -276,7 +276,7 @@ class TimerControls extends StatelessWidget {
                 left: 80, // Custom value for positioning next to reset
                 top: 15,
                 child: IconButton(
-                  icon: Icon(Icons.fast_rewind),
+                  icon: Icon(Icons.fast_rewind_rounded),
                   onPressed: timerProvider.jumpBackward,
                 ),
               ),
@@ -285,7 +285,7 @@ class TimerControls extends StatelessWidget {
                 right: 80,
                 top: 15,
                 child: IconButton(
-                  icon: Icon(Icons.fast_forward),
+                  icon: Icon(Icons.fast_forward_rounded),
                   onPressed: timerProvider.jumpForward,
                 ),
               ),
@@ -339,7 +339,7 @@ class BrightnessSlider extends StatelessWidget {
       color: Theme.of(context).colorScheme.surfaceContainer,
       child: Row(
         children: [
-          Icon(Icons.brightness_6),
+          Icon(Icons.brightness_6_rounded),
           Expanded(
             child: Slider(
               value: brightnessProvider.brightness,

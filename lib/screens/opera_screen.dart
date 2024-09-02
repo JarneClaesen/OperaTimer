@@ -41,7 +41,7 @@ class OperaScreen extends StatelessWidget {
                   title: Text(part.partName),
                   subtitle: Text(formattedPlayTimes),
                   trailing: isSelected
-                      ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+                      ? Icon(Icons.play_arrow_rounded, color: Theme.of(context).colorScheme.primary)
                       : null,
                   onTap: () {
                     timerProvider.setCurrentOpera(opera.name, part.playTimes);
