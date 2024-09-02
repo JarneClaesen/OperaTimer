@@ -1,5 +1,7 @@
 // lib/main.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:hive/hive.dart';
@@ -15,6 +17,8 @@ import 'package:provider/provider.dart';
 
 import 'models/opera.dart';
 import 'models/setlist.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +36,11 @@ void main() async {
   await notificationService.initialize();
 
   runApp(const MyApp());
+
+  Timer.periodic(Duration(seconds: 1), (timer) {
+    final timerProvider = Provider.of<TimerProvider>(navigatorKey.currentContext!, listen: false);
+    timerProvider.updateTimer();
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -48,6 +57,7 @@ class MyApp extends StatelessWidget {
       child: Consumer2<BrightnessProvider, ThemeProvider>(
         builder: (context, brightnessProvider, themeProvider, child) {
           return MaterialApp(
+            navigatorKey: navigatorKey,
             title: 'Orchestra Timer',
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(seedColor: themeProvider.currentColor),

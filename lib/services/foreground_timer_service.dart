@@ -35,11 +35,11 @@ class TimerTaskHandler extends TaskHandler {
 
   Future _updateTimer() async {
     final prefs = await SharedPreferences.getInstance();
-    int currentTime = prefs.getInt('currentTime') ?? 0;
     bool isRunning = prefs.getBool('isRunning') ?? false;
+    int startTimeMillis = prefs.getInt('startTimeMillis') ?? 0;
 
-    if (isRunning) {
-      currentTime++;
+    if (isRunning && startTimeMillis != 0) {
+      int currentTime = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(startTimeMillis)).inSeconds;
       await prefs.setInt('currentTime', currentTime);
       print('Foreground service: Updated time to $currentTime');
 
@@ -50,6 +50,7 @@ class TimerTaskHandler extends TaskHandler {
       );
     }
   }
+
 
   String _formatTime(int seconds) {
     final hours = seconds ~/ 3600;

@@ -29,6 +29,7 @@ class TimerProvider with ChangeNotifier {
   String? _currentOperaName;
   List<bool> _hasWarnedForPlayTimes = [];
   List<bool> _hasNotifiedForPlayTimes = [];
+  DateTime? _startTime;
 
 
   TimerProvider() {
@@ -49,15 +50,24 @@ class TimerProvider with ChangeNotifier {
 
   Future<void> _loadTimerState() async {
     final prefs = await SharedPreferences.getInstance();
-    _currentTime = prefs.getInt(currentTimeKey) ?? 0;
-    _isRunning = prefs.getBool(isRunningKey) ?? false;
+    _currentTime = prefs.getInt('currentTime') ?? 0;
+    _isRunning = prefs.getBool('isRunning') ?? false;
+    int? startTimeMillis = prefs.getInt('startTimeMillis');
+    if (startTimeMillis != null) {
+      _startTime = DateTime.fromMillisecondsSinceEpoch(startTimeMillis);
+    }
     notifyListeners();
   }
 
   Future<void> _saveTimerState() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(currentTimeKey, _currentTime);
-    await prefs.setBool(isRunningKey, _isRunning);
+    await prefs.setInt('currentTime', _currentTime);
+    await prefs.setBool('isRunning', _isRunning);
+    if (_startTime != null) {
+      await prefs.setInt('startTimeMillis', _startTime!.millisecondsSinceEpoch);
+    } else {
+      await prefs.remove('startTimeMillis');
+    }
   }
 
   void startPeriodicUpdate() {
@@ -150,6 +160,7 @@ class TimerProvider with ChangeNotifier {
   Future<void> startTimer() async {
     if (_isRunning) return;
     _isRunning = true;
+    _startTime = DateTime.now().subtract(Duration(seconds: _currentTime));
     _checkWarningsAndPlayTimes();
     await _saveTimerState();
     notifyListeners();
@@ -159,6 +170,7 @@ class TimerProvider with ChangeNotifier {
   void pauseTimer() {
     if (!_isRunning) return;
     _isRunning = false;
+    _startTime = null;
     _saveTimerState();
     notifyListeners();
     ForegroundTimerService.stopForegroundTask();
@@ -169,6 +181,7 @@ class TimerProvider with ChangeNotifier {
     _isWarningActive = false;
     _isPlayTimeActive = false;
     _isRunning = false;
+    _startTime = null;
     _hasWarnedForPlayTimes = List.filled(_playTimes.length, false);
     _saveTimerState();
     notifyListeners();
@@ -236,16 +249,11 @@ class TimerProvider with ChangeNotifier {
 
 
   // This method will be called by the background service to update the timer
-  void updateTimer() async {
-    final prefs = await SharedPreferences.getInstance();
-    _currentTime = prefs.getInt(currentTimeKey) ?? _currentTime;
-    _isRunning = prefs.getBool(isRunningKey) ?? _isRunning;
-    if (_isRunning) {
-      _currentTime++;
-      await _saveTimerState();
+  void updateTimer() {
+    if (_isRunning && _startTime != null) {
+      _currentTime = DateTime.now().difference(_startTime!).inSeconds;
       _checkWarningsAndPlayTimes();
       notifyListeners();
-      print('TimerProvider: Current time updated to $_currentTime');
     }
   }
 }
