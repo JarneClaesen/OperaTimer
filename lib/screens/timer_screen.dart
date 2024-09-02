@@ -7,6 +7,9 @@ import 'package:sound_mode/utils/ringer_mode_statuses.dart';
 import '../providers/timer_provider.dart';
 import '../providers/brightness_provider.dart';
 import '../widgets/glowing_borders.dart';
+import '../widgets/timer_screen/animated_play_pause_container.dart';
+import '../widgets/timer_screen/jump_button.dart';
+import '../widgets/timer_screen/play_pause_button.dart';
 
 class TimerScreen extends StatefulWidget {
   @override
@@ -278,46 +281,33 @@ class TimerControls extends StatelessWidget {
                 Positioned(
                   left: 80,
                   top: 15,
-                  child: IconButton(
-                    icon: Icon(Icons.fast_rewind_rounded),
-                    onPressed: timerProvider.jumpBackward,
+                  child: JumpButton(
+                    icon: Icons.fast_rewind_rounded,
+                    onPressed: timerProvider.debouncedJumpBackward,
                   ),
                 ),
                 // Forward button
                 Positioned(
                   right: 80,
                   top: 15,
-                  child: IconButton(
-                    icon: Icon(Icons.fast_forward_rounded),
-                    onPressed: timerProvider.jumpForward,
+                  child: JumpButton(
+                    icon: Icons.fast_forward_rounded,
+                    onPressed: timerProvider.debouncedJumpForward,
                   ),
                 ),
               ],
               // Play/Pause button in the center
               Align(
                 alignment: Alignment.center,
-                child: AnimatedContainer(
-                  duration: Duration(milliseconds: 300),
-                  width: timerProvider.isRunning ? 100 : 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: timerProvider.isRunning ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(40),
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      timerProvider.isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      size: 40,
-                    ),
-                    onPressed: () {
-                      if (timerProvider.isRunning) {
-                        timerProvider.pauseTimer();
-                      } else {
-                        timerProvider.startTimer();
-                      }
-                    },
-                  ),
+                child: AnimatedPlayPauseContainer(
+                  isRunning: timerProvider.isRunning,
+                  onPressed: () {
+                    if (timerProvider.isRunning) {
+                      timerProvider.pauseTimer();
+                    } else {
+                      timerProvider.startTimer();
+                    }
+                  },
                 ),
               ),
             ],

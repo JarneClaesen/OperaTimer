@@ -35,6 +35,7 @@ class TimerProvider with ChangeNotifier {
   DateTime? _startTime;
   bool _showGlowingBorders = true;
   bool _showJumpButtons = true;
+  Timer? _debounceTimer;
 
 
   TimerProvider() {
@@ -199,13 +200,13 @@ class TimerProvider with ChangeNotifier {
     await ForegroundTimerService.startForegroundTask();
   }
 
-  void pauseTimer() {
+  Future<void> pauseTimer() async{
     if (!_isRunning) return;
     _isRunning = false;
     _startTime = null;
-    _saveTimerState();
+    await _saveTimerState();
     notifyListeners();
-    ForegroundTimerService.stopForegroundTask();
+    await ForegroundTimerService.stopForegroundTask();
   }
 
   Future<void> stopTimer() async {
@@ -222,23 +223,36 @@ class TimerProvider with ChangeNotifier {
     await ForegroundTimerService.stopForegroundTask();
   }
 
-  void jumpForward() {
+  Future<void> jumpForward() async {
     if (_isRunning) {
+      await pauseTimer();
       _currentTime += _jumpSeconds;
-      _startTime = _startTime?.subtract(Duration(seconds: _jumpSeconds));
-      _saveTimerState();
-      notifyListeners();
+      await startTimer();
     }
   }
 
-  void jumpBackward() {
+  Future<void> jumpBackward() async {
     if (_isRunning) {
+      await pauseTimer();
       _currentTime = max(0, _currentTime - _jumpSeconds);
-      _startTime = _startTime?.add(Duration(seconds: _jumpSeconds));
-      _saveTimerState();
-      notifyListeners();
+      await startTimer();
     }
   }
+
+  Future<void> debouncedJumpForward() async {
+    if (_debounceTimer?.isActive ?? false) return;
+    _debounceTimer = Timer(Duration(milliseconds: 500), () async {
+      await jumpForward();
+    });
+  }
+
+  Future<void> debouncedJumpBackward() async {
+    if (_debounceTimer?.isActive ?? false) return;
+    _debounceTimer = Timer(Duration(milliseconds: 500), () async {
+      await jumpBackward();
+    });
+  }
+
 
   String _formatWarningMessage(int seconds) {
     if (seconds < 60) {
