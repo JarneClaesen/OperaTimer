@@ -209,16 +209,16 @@ class TimerProvider with ChangeNotifier {
     await ForegroundTimerService.stopForegroundTask();
   }
 
-  Future<void> stopTimer() async {
+  Future stopTimer() async {
     _currentTime = 0;
     _isWarningActive = false;
     _isPlayTimeActive = false;
     _isRunning = false;
     _startTime = null;
     _hasWarnedForPlayTimes = List.filled(_playTimes.length, false);
-    _saveTimerState();
+    _hasNotifiedForPlayTimes = List.filled(_playTimes.length, false);
+    await _saveTimerState();
     notifyListeners();
-
     // Stop foreground task
     await ForegroundTimerService.stopForegroundTask();
   }
