@@ -25,10 +25,26 @@ class SettingsScreen extends StatelessWidget {
                 trailing: Text(timerProvider.playDuration.toString()),
                 onTap: () => _showNumberPicker(context, timerProvider, isWarningTime: false),
               ),
+              SwitchListTile(
+                title: Text('Show Jump Buttons'),
+                value: timerProvider.showJumpButtons,
+                onChanged: (bool value) {
+                  timerProvider.setShowJumpButtons(value);
+                },
+              ),
               ListTile(
                 title: Text('Jump Seconds'),
                 trailing: Text(timerProvider.jumpSeconds.toString()),
-                onTap: () => _showNumberPicker(context, timerProvider, isJumpSeconds: true),
+                onTap: timerProvider.showJumpButtons
+                    ? () => _showNumberPicker(context, timerProvider, isJumpSeconds: true)
+                    : null,
+                enabled: timerProvider.showJumpButtons,
+                textColor: timerProvider.showJumpButtons
+                    ? null
+                    : Theme.of(context).disabledColor,
+                iconColor: timerProvider.showJumpButtons
+                    ? null
+                    : Theme.of(context).disabledColor,
               ),
               SwitchListTile(
                 title: Text('Send Warning Notifications'),

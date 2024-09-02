@@ -229,6 +229,7 @@ class TimerControls extends StatelessWidget {
               if (timerProvider.isRunning || timerProvider.currentTime != 0)
                 Positioned(
                   top: 15,
+                  left: timerProvider.showJumpButtons ? 0 : 60,
                   child: Container(
                     width: 50,
                     height: 50,
@@ -272,23 +273,26 @@ class TimerControls extends StatelessWidget {
                   ),
                 ),
               // Rewind button next to reset
-              Positioned(
-                left: 80, // Custom value for positioning next to reset
-                top: 15,
-                child: IconButton(
-                  icon: Icon(Icons.fast_rewind_rounded),
-                  onPressed: timerProvider.jumpBackward,
+              if (timerProvider.showJumpButtons) ...[
+                // Rewind button
+                Positioned(
+                  left: 80,
+                  top: 15,
+                  child: IconButton(
+                    icon: Icon(Icons.fast_rewind_rounded),
+                    onPressed: timerProvider.jumpBackward,
+                  ),
                 ),
-              ),
-              // Forward button positioned to the far right
-              Positioned(
-                right: 80,
-                top: 15,
-                child: IconButton(
-                  icon: Icon(Icons.fast_forward_rounded),
-                  onPressed: timerProvider.jumpForward,
+                // Forward button
+                Positioned(
+                  right: 80,
+                  top: 15,
+                  child: IconButton(
+                    icon: Icon(Icons.fast_forward_rounded),
+                    onPressed: timerProvider.jumpForward,
+                  ),
                 ),
-              ),
+              ],
               // Play/Pause button in the center
               Align(
                 alignment: Alignment.center,
