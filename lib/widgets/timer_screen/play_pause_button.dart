@@ -25,7 +25,11 @@ class PlayPauseButton extends StatelessWidget {
           size: 40,
         ),
       ),
-      onPressed: onPressed,
+      onPressed: () {
+        Future.delayed(Duration(milliseconds: 5), () {
+          onPressed();
+        });
+      },
     );
   }
 }

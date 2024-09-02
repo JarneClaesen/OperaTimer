@@ -23,7 +23,11 @@ class AnimatedPlayPauseContainer extends StatelessWidget {
       ),
       child: PlayPauseButton(
         isRunning: isRunning,
-        onPressed: onPressed,
+        onPressed: () {
+          Future.delayed(Duration(milliseconds: 5), () {
+            onPressed();
+          });
+        },
       ),
     );
   }

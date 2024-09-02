@@ -162,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: 80.0), // Adjust this value as needed
+        padding: EdgeInsets.only(bottom: 100.0), // Adjust this value as needed
         child: FloatingActionButton(
           onPressed: () {
             Navigator.push(
