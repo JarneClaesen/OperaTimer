@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -18,6 +20,7 @@ class TimerProvider with ChangeNotifier {
   int _currentTime = 0;
   int _warningTime = 60; // Default: 1 minute before play time
   int _playDuration = 10; // Default: 10 seconds for play time message
+  int _jumpSeconds = 1;
   List<int> _playTimes = [];
   bool _isWarningActive = false;
   bool _isPlayTimeActive = false;
@@ -45,6 +48,7 @@ class TimerProvider with ChangeNotifier {
     _playDuration = box.get(playDurationKey, defaultValue: 10);
     _sendWarningNotifications = box.get(sendWarningNotificationsKey, defaultValue: true);
     _sendPlayTimeNotifications = box.get(sendPlayTimeNotificationsKey, defaultValue: true);
+    _jumpSeconds = box.get('jumpSeconds', defaultValue: 1);
     notifyListeners();
   }
 
@@ -87,6 +91,7 @@ class TimerProvider with ChangeNotifier {
   int get playDuration => _playDuration;
   bool get sendWarningNotifications => _sendWarningNotifications;
   bool get sendPlayTimeNotifications => _sendPlayTimeNotifications;
+  int get jumpSeconds => _jumpSeconds;
 
   void setOnTimerScreen(bool value) {
     _isOnTimerScreen = value;
@@ -157,6 +162,13 @@ class TimerProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void setJumpSeconds(int seconds) async {
+    _jumpSeconds = seconds;
+    final box = await Hive.openBox(settingsBoxName);
+    await box.put('jumpSeconds', seconds);
+    notifyListeners();
+  }
+
   Future<void> startTimer() async {
     if (_isRunning) return;
     _isRunning = true;
@@ -188,6 +200,24 @@ class TimerProvider with ChangeNotifier {
 
     // Stop foreground task
     await ForegroundTimerService.stopForegroundTask();
+  }
+
+  void jumpForward() {
+    if (_isRunning) {
+      _currentTime += _jumpSeconds;
+      _startTime = _startTime?.subtract(Duration(seconds: _jumpSeconds));
+      _saveTimerState();
+      notifyListeners();
+    }
+  }
+
+  void jumpBackward() {
+    if (_isRunning) {
+      _currentTime = max(0, _currentTime - _jumpSeconds);
+      _startTime = _startTime?.add(Duration(seconds: _jumpSeconds));
+      _saveTimerState();
+      notifyListeners();
+    }
   }
 
   String _formatWarningMessage(int seconds) {
@@ -247,12 +277,12 @@ class TimerProvider with ChangeNotifier {
     notifyListeners();
   }
 
-
   // This method will be called by the background service to update the timer
   void updateTimer() {
     if (_isRunning && _startTime != null) {
       _currentTime = DateTime.now().difference(_startTime!).inSeconds;
       _checkWarningsAndPlayTimes();
+      _saveTimerState();
       notifyListeners();
     }
   }

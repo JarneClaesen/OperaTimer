@@ -202,6 +202,7 @@ class TimerControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity, // Ensures the Container takes full width of its parent
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainer,
@@ -223,14 +224,14 @@ class TimerControls extends StatelessWidget {
           ),
           SizedBox(height: 20),
           Stack(
-            alignment: Alignment.center,
             children: [
+              // Reset button positioned to the far left
               if (timerProvider.isRunning || timerProvider.currentTime != 0)
                 Positioned(
-                  left: MediaQuery.of(context).size.width / 2 - 150,
+                  top: 15,
                   child: Container(
                     width: 50,
-                    height: 100,
+                    height: 50,
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.tertiaryContainer,
                       shape: BoxShape.circle,
@@ -239,7 +240,7 @@ class TimerControls extends StatelessWidget {
                       icon: Icon(
                         Icons.refresh_rounded,
                         color: Theme.of(context).colorScheme.onTertiaryContainer,
-                        size: 25,
+                        size: 30,
                       ),
                       onPressed: () {
                         showDialog(
@@ -270,7 +271,27 @@ class TimerControls extends StatelessWidget {
                     ),
                   ),
                 ),
-              Center(
+              // Rewind button next to reset
+              Positioned(
+                left: 80, // Custom value for positioning next to reset
+                top: 15,
+                child: IconButton(
+                  icon: Icon(Icons.fast_rewind),
+                  onPressed: timerProvider.jumpBackward,
+                ),
+              ),
+              // Forward button positioned to the far right
+              Positioned(
+                right: 80,
+                top: 15,
+                child: IconButton(
+                  icon: Icon(Icons.fast_forward),
+                  onPressed: timerProvider.jumpForward,
+                ),
+              ),
+              // Play/Pause button in the center
+              Align(
+                alignment: Alignment.center,
                 child: AnimatedContainer(
                   duration: Duration(milliseconds: 300),
                   width: timerProvider.isRunning ? 100 : 80,
@@ -302,6 +323,8 @@ class TimerControls extends StatelessWidget {
     );
   }
 }
+
+
 
 
 class BrightnessSlider extends StatelessWidget {

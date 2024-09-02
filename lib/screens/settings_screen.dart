@@ -18,12 +18,17 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 title: Text('Warning Time (seconds)'),
                 trailing: Text(timerProvider.warningTime.toString()),
-                onTap: () => _showNumberPicker(context, timerProvider, true),
+                onTap: () => _showNumberPicker(context, timerProvider, isWarningTime: true),
               ),
               ListTile(
                 title: Text('Play Duration (seconds)'),
                 trailing: Text(timerProvider.playDuration.toString()),
-                onTap: () => _showNumberPicker(context, timerProvider, false),
+                onTap: () => _showNumberPicker(context, timerProvider, isWarningTime: false),
+              ),
+              ListTile(
+                title: Text('Jump Seconds'),
+                trailing: Text(timerProvider.jumpSeconds.toString()),
+                onTap: () => _showNumberPicker(context, timerProvider, isJumpSeconds: true),
               ),
               SwitchListTile(
                 title: Text('Send Warning Notifications'),
@@ -53,19 +58,19 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showNumberPicker(BuildContext context, TimerProvider timerProvider, bool isWarningTime) {
+  void _showNumberPicker(BuildContext context, TimerProvider timerProvider, {bool isWarningTime = false, bool isJumpSeconds = false}) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        int currentValue = isWarningTime ? timerProvider.warningTime : timerProvider.playDuration;
+        int currentValue = isJumpSeconds ? timerProvider.jumpSeconds : (isWarningTime ? timerProvider.warningTime : timerProvider.playDuration);
         return AlertDialog(
-          title: Text(isWarningTime ? 'Set Warning Time' : 'Set Play Duration'),
+          title: Text(isJumpSeconds ? 'Set Jump Seconds' : (isWarningTime ? 'Set Warning Time' : 'Set Play Duration')),
           content: StatefulBuilder(
             builder: (BuildContext context, StateSetter setState) {
               return NumberPicker(
                 value: currentValue,
                 minValue: 1,
-                maxValue: 300,
+                maxValue: isJumpSeconds ? 60 : 300,
                 onChanged: (value) => setState(() => currentValue = value),
               );
             },
@@ -78,7 +83,9 @@ class SettingsScreen extends StatelessWidget {
             TextButton(
               child: Text('OK'),
               onPressed: () {
-                if (isWarningTime) {
+                if (isJumpSeconds) {
+                  timerProvider.setJumpSeconds(currentValue);
+                } else if (isWarningTime) {
                   timerProvider.setWarningTime(currentValue);
                 } else {
                   timerProvider.setPlayDuration(currentValue);
