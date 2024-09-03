@@ -40,7 +40,7 @@ class FloatingTimer extends StatelessWidget {
                     Row(
                       children: [
                         Icon(
-                          Icons.timer,
+                          Icons.timer_rounded,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         SizedBox(width: 12),
@@ -58,7 +58,7 @@ class FloatingTimer extends StatelessWidget {
                       Row(
                         children: [
                           Icon(
-                            Icons.play_circle_outline,
+                            Icons.play_circle_outline_rounded,
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                           SizedBox(width: 12),
