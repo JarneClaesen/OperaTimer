@@ -15,6 +15,7 @@ import 'package:orchestra_timer/services/foreground_timer_service.dart';
 import 'package:orchestra_timer/services/notification_service.dart';
 import 'package:orchestra_timer/widgets/screen_with_floating_timer.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/data/latest.dart' as tz;
 
 import 'models/opera.dart';
 import 'models/setlist.dart';
@@ -23,6 +24,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  tz.initializeTimeZones();
   FlutterForegroundTask.initCommunicationPort();
   await Hive.initFlutter();
   Hive.registerAdapter(OperaAdapter());

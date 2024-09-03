@@ -194,22 +194,23 @@ class TimerProvider with ChangeNotifier {
     if (_isRunning) return;
     _isRunning = true;
     _startTime = DateTime.now().subtract(Duration(seconds: _currentTime));
-    _checkWarningsAndPlayTimes();
+    _scheduleAllNotifications();
     await _saveTimerState();
     notifyListeners();
     await ForegroundTimerService.startForegroundTask();
   }
 
-  Future<void> pauseTimer() async{
+  Future<void> pauseTimer() async {
     if (!_isRunning) return;
     _isRunning = false;
     _startTime = null;
+    await _cancelAllNotifications();
     await _saveTimerState();
     notifyListeners();
     await ForegroundTimerService.stopForegroundTask();
   }
 
-  Future stopTimer() async {
+  Future<void> stopTimer() async {
     _currentTime = 0;
     _isWarningActive = false;
     _isPlayTimeActive = false;
@@ -217,10 +218,48 @@ class TimerProvider with ChangeNotifier {
     _startTime = null;
     _hasWarnedForPlayTimes = List.filled(_playTimes.length, false);
     _hasNotifiedForPlayTimes = List.filled(_playTimes.length, false);
+    await _cancelAllNotifications();
     await _saveTimerState();
     notifyListeners();
-    // Stop foreground task
     await ForegroundTimerService.stopForegroundTask();
+  }
+
+  Future<void> _scheduleAllNotifications() async {
+    await _cancelAllNotifications();
+    if (_startTime == null) return;
+
+    for (int i = 0; i < _playTimes.length; i++) {
+      int playTime = _playTimes[i];
+      int timeUntilPlay = playTime - _currentTime;
+
+      if (timeUntilPlay > 0) {
+        // Schedule warning notification
+        if (_sendWarningNotifications && timeUntilPlay > _warningTime) {
+          DateTime warningTime = _startTime!.add(Duration(seconds: playTime - _warningTime));
+          await _notificationService.scheduleNotification(
+            i * 2,
+            'Warning',
+            'You need to play in $_warningTime seconds',
+            warningTime,
+          );
+        }
+
+        // Schedule play time notification
+        if (_sendPlayTimeNotifications) {
+          DateTime playDateTime = _startTime!.add(Duration(seconds: playTime));
+          await _notificationService.scheduleNotification(
+            i * 2 + 1,
+            'Play Time',
+            'It\'s time to play!',
+            playDateTime,
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _cancelAllNotifications() async {
+    await _notificationService.cancelAllNotifications();
   }
 
   Future<void> jumpForward() async {
