@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'dart:async';
 import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,6 +44,7 @@ class TimerProvider with ChangeNotifier {
     _loadSettings();
     _loadTimerState();
     startPeriodicUpdate();
+    initForegroundTaskListener();
   }
 
   Future<void> _loadSettings() async {
@@ -77,6 +79,11 @@ class TimerProvider with ChangeNotifier {
     } else {
       await prefs.remove('startTimeMillis');
     }
+    await prefs.setStringList('playTimes', _playTimes.map((e) => e.toString()).toList());
+    await prefs.setInt('warningTime', _warningTime);
+    await prefs.setInt('playDuration', _playDuration);
+    await prefs.setBool('sendWarningNotifications', _sendWarningNotifications);
+    await prefs.setBool('sendPlayTimeNotifications', _sendPlayTimeNotifications);
   }
 
   void startPeriodicUpdate() {
@@ -194,7 +201,6 @@ class TimerProvider with ChangeNotifier {
     if (_isRunning) return;
     _isRunning = true;
     _startTime = DateTime.now().subtract(Duration(seconds: _currentTime));
-    _scheduleAllNotifications();
     await _saveTimerState();
     notifyListeners();
     await ForegroundTimerService.startForegroundTask();
@@ -204,7 +210,6 @@ class TimerProvider with ChangeNotifier {
     if (!_isRunning) return;
     _isRunning = false;
     _startTime = null;
-    await _cancelAllNotifications();
     await _saveTimerState();
     notifyListeners();
     await ForegroundTimerService.stopForegroundTask();
@@ -218,10 +223,23 @@ class TimerProvider with ChangeNotifier {
     _startTime = null;
     _hasWarnedForPlayTimes = List.filled(_playTimes.length, false);
     _hasNotifiedForPlayTimes = List.filled(_playTimes.length, false);
-    await _cancelAllNotifications();
     await _saveTimerState();
     notifyListeners();
     await ForegroundTimerService.stopForegroundTask();
+  }
+
+  void initForegroundTaskListener() {
+    FlutterForegroundTask.addTaskDataCallback((data) {
+      if (data == 'notificationTrackingReset') {
+        print('Notification tracking reset confirmed');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    FlutterForegroundTask.removeTaskDataCallback((data) {});
+    super.dispose();
   }
 
   Future<void> _scheduleAllNotifications() async {

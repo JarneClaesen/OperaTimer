@@ -5,16 +5,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'dart:isolate';
 
+import 'notification_service.dart';
+
 @pragma('vm:entry-point')
 void startCallback() {
   FlutterForegroundTask.setTaskHandler(TimerTaskHandler());
 }
 
 class TimerTaskHandler extends TaskHandler {
+  NotificationService _notificationService = NotificationService();
+  Set<int> _sentWarningNotifications = {};
+  Set<int> _sentPlayTimeNotifications = {};
+
   @override
   void onStart(DateTime timestamp) async {
-    // Initialize the timer
+    await _notificationService.initialize();
+    // don't call _update timer here
     print('Foreground service started');
+
   }
 
   @override
@@ -35,22 +43,74 @@ class TimerTaskHandler extends TaskHandler {
     print('Notification button pressed: $id');
   }
 
+  @override
+  void onReceiveData(Object? data) {
+    if (data is String && data == 'resetNotificationTracking') {
+      resetNotificationTracking();
+    }
+  }
+
   Future _updateTimer() async {
     final prefs = await SharedPreferences.getInstance();
     bool isRunning = prefs.getBool('isRunning') ?? false;
     int startTimeMillis = prefs.getInt('startTimeMillis') ?? 0;
 
-    if (isRunning && startTimeMillis != 0) {
-      int currentTime = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(startTimeMillis)).inSeconds;
+    List<String> playTimesStrings = prefs.getStringList('playTimes') ?? [];
+    List<int> playTimes = playTimesStrings.map((e) => int.parse(e)).toList();
+
+    int warningTime = prefs.getInt('warningTime') ?? 60;
+    int playDuration = prefs.getInt('playDuration') ?? 10;
+    bool sendWarningNotifications = prefs.getBool('sendWarningNotifications') ?? true;
+    bool sendPlayTimeNotifications = prefs.getBool('sendPlayTimeNotifications') ?? true;
+
+    if ((isRunning && startTimeMillis != 0)) {
+      int currentTime = isRunning
+          ? DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(startTimeMillis)).inSeconds
+          : prefs.getInt('currentTime') ?? 0;
       await prefs.setInt('currentTime', currentTime);
       print('Foreground service: Updated time to $currentTime');
 
       // Update the notification
       await FlutterForegroundTask.updateService(
-        notificationTitle: _formatTime(currentTime),
+        notificationTitle: 'Opera Timer',
+        notificationText: _formatTime(currentTime),
       );
+
+      // Check for warnings and play times
+      for (int i = 0; i < playTimes.length; i++) {
+        int playTime = playTimes[i];
+        int timeUntilPlay = playTime - currentTime;
+
+        // Check for warning time
+        if (timeUntilPlay <= warningTime && timeUntilPlay > 0 && sendWarningNotifications) {
+          if (!_sentWarningNotifications.contains(i) && timeUntilPlay <= 5) {
+            await _notificationService.showNotification('Warning', 'You need to play in $warningTime seconds');
+            _sentWarningNotifications.add(i);
+          }
+        } else {
+          _sentWarningNotifications.remove(i);
+        }
+
+        // Check for play time
+        if (currentTime >= playTime && currentTime < playTime + playDuration && sendPlayTimeNotifications) {
+          if (!_sentPlayTimeNotifications.contains(i) && currentTime - playTime < 5) {
+            await _notificationService.showNotification('Play Time', 'It\'s time to play!');
+            _sentPlayTimeNotifications.add(i);
+          }
+        } else {
+          _sentPlayTimeNotifications.remove(i);
+        }
+      }
     }
   }
+
+  void resetNotificationTracking() {
+    _sentWarningNotifications.clear();
+    _sentPlayTimeNotifications.clear();
+    // Send data to main isolate to confirm reset
+    FlutterForegroundTask.sendDataToMain('notificationTrackingReset');
+  }
+
 
 
   String _formatTime(int seconds) {
@@ -107,28 +167,41 @@ class ForegroundTimerService {
   }
 
   static Future<bool> startForegroundTask() async {
-    if (await FlutterForegroundTask.isRunningService) {
-      final result = await FlutterForegroundTask.restartService();
-      return result == ServiceRequestResult.success;
-    } else {
-      final result = await FlutterForegroundTask.startService(
-        notificationTitle: 'Opera Timer',
-        notificationText: '',
-        notificationIcon: const NotificationIconData(
-          resType: ResourceType.mipmap,
-          resPrefix: ResourcePrefix.ic,
-          name: 'launcher',
-        ),
-        callback: startCallback,
-      );
-      return result == ServiceRequestResult.success;
+    print('Starting foreground task');
+    try {
+      if (await FlutterForegroundTask.isRunningService) {
+        print('Service is already running, restarting...');
+        final result = await FlutterForegroundTask.restartService();
+        print('Restart result: $result');
+        return result == ServiceRequestResult.success;
+      } else {
+        print('Starting new foreground service');
+        final result = await FlutterForegroundTask.startService(
+          notificationTitle: 'Opera Timer',
+          notificationText: 'Timer is running',
+          notificationIcon: const NotificationIconData(
+            resType: ResourceType.mipmap,
+            resPrefix: ResourcePrefix.ic,
+            name: 'launcher',
+          ),
+          callback: startCallback,
+        );
+        print('Start result: $result');
+        return result == ServiceRequestResult.success;
+      }
+    } catch (e) {
+      print('Error starting foreground task: $e');
+      return false;
     }
   }
 
-
   static Future<bool> stopForegroundTask() async {
     final result = await FlutterForegroundTask.stopService();
-    await FlutterForegroundTask.clearAllData();
+    // await FlutterForegroundTask.clearAllData();
     return result == ServiceRequestResult.success;
+  }
+
+  static void resetNotificationTracking() {
+    FlutterForegroundTask.sendDataToTask('resetNotificationTracking');
   }
 }
