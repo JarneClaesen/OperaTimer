@@ -83,7 +83,7 @@ class TimerTaskHandler extends TaskHandler {
 
         // Check for warning time
         if (timeUntilPlay <= warningTime && timeUntilPlay > 0 && sendWarningNotifications) {
-          if (!_sentWarningNotifications.contains(i) && timeUntilPlay <= 5) {
+          if (!_sentWarningNotifications.contains(i)) {
             await _notificationService.showNotification('Warning', 'You need to play in $warningTime seconds');
             _sentWarningNotifications.add(i);
           }

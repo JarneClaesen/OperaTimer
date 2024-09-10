@@ -310,69 +310,9 @@ class TimerProvider with ChangeNotifier {
     });
   }
 
-
-  String _formatWarningMessage(int seconds) {
-    if (seconds < 60) {
-      return '$seconds second${seconds != 1 ? 's' : ''} until you have to play!';
-    } else {
-      final minutes = seconds ~/ 60;
-      final remainingSeconds = seconds % 60;
-
-      String message = '$minutes minute${minutes > 1 ? 's' : ''}';
-
-      if (remainingSeconds > 0) {
-        message += ' and $remainingSeconds second${remainingSeconds != 1 ? 's' : ''}';
-      }
-
-      return '$message until you have to play!';
-    }
-  }
-
-  void _checkWarningsAndPlayTimes() {
-    bool anyWarningActive = false;
-    bool anyPlayTimeActive = false;
-
-    for (int i = 0; i < _playTimes.length; i++) {
-      int playTime = _playTimes[i];
-      int timeUntilPlay = playTime - _currentTime;
-
-      // Check for warning time
-      if (timeUntilPlay <= _warningTime && timeUntilPlay > 0) {
-        anyWarningActive = true;
-        if (!_hasWarnedForPlayTimes[i]) {
-          _hasWarnedForPlayTimes[i] = true;
-          if (_sendWarningNotifications) {
-            _notificationService.showNotification('Warning', 'You need to play in $_warningTime seconds');
-          }
-        }
-      }
-      // Check for play time
-      else if (_currentTime >= playTime && _currentTime < playTime + _playDuration) {
-        anyPlayTimeActive = true;
-        if (!_hasNotifiedForPlayTimes[i]) { // Add this check
-          _hasNotifiedForPlayTimes[i] = true; // Set the flag
-          if (_sendPlayTimeNotifications) {
-            _notificationService.showNotification('Play Time', 'It\'s time to play!');
-          }
-        }
-      }
-      else {
-        // Reset the notification flag when outside the play time window
-        _hasNotifiedForPlayTimes[i] = false;
-      }
-    }
-
-    _isWarningActive = anyWarningActive;
-    _isPlayTimeActive = anyPlayTimeActive;
-
-    notifyListeners();
-  }
-
-  // This method will be called by the background service to update the timer
   void updateTimer() {
     if (_isRunning && _startTime != null) {
       _currentTime = DateTime.now().difference(_startTime!).inSeconds;
-      _checkWarningsAndPlayTimes();
       _saveTimerState();
       notifyListeners();
     }
