@@ -16,6 +16,13 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   Set<int> _selectedIndexes = Set<int>();
+  Future<Box<Opera>>? _operaBoxFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _operaBoxFuture = Hive.openBox<Opera>('operas');
+  }
 
   void _clearSelection() {
     setState(() {
@@ -110,14 +117,18 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Consumer<TimerProvider>(
         builder: (context, timerProvider, child) {
           return FutureBuilder<Box<Opera>>(
-            future: Hive.openBox<Opera>('operas'),
+            future: _operaBoxFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.done) {
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
+                final operaBox = snapshot.data;
+                if (operaBox == null) {
+                  return Center(child: Text('Failed to open Hive box'));
+                }
                 return ValueListenableBuilder<Box<Opera>>(
-                  valueListenable: Hive.box<Opera>('operas').listenable(),
+                  valueListenable: operaBox.listenable(),
                   builder: (context, box, _) {
                     if (box.values.isEmpty) {
                       return Center(
@@ -177,7 +188,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                 );
+              } else if (snapshot.connectionState ==
+                  ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
               } else {
+                // Handle other states if necessary
                 return Center(child: CircularProgressIndicator());
               }
             },
