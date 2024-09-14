@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:hive/hive.dart';
-import 'package:path_provider/path_provider.dart'; // For getApplicationDocumentsDirectory
+import 'package:path_provider/path_provider.dart';
 import 'dart:async';
 
 import 'notification_service.dart';
@@ -14,8 +14,8 @@ void startCallback() {
 
 class TimerTaskHandler extends TaskHandler {
   NotificationService _notificationService = NotificationService();
-  Set<int> _sentWarningNotifications = {};
-  Set<int> _sentPlayTimeNotifications = {};
+  List<bool> _sentWarningNotifications = [];
+  List<bool> _sentPlayTimeNotifications = [];
 
   static const String timerStateBoxName = 'timerState';
 
@@ -46,7 +46,7 @@ class TimerTaskHandler extends TaskHandler {
   }
 
   @override
-  void onReceiveData(Object? data) {
+  void onDataReceived(dynamic data) {
     if (data is String && data == 'resetNotificationTracking') {
       resetNotificationTracking();
     }
@@ -67,6 +67,13 @@ class TimerTaskHandler extends TaskHandler {
     box.get('sendWarningNotifications', defaultValue: true);
     bool sendPlayTimeNotifications =
     box.get('sendPlayTimeNotifications', defaultValue: true);
+
+    if (_sentWarningNotifications.length != playTimes.length) {
+      _sentWarningNotifications = List.filled(playTimes.length, false);
+    }
+    if (_sentPlayTimeNotifications.length != playTimes.length) {
+      _sentPlayTimeNotifications = List.filled(playTimes.length, false);
+    }
 
     if (isRunning && startTimeMillis != 0) {
       int currentTime = DateTime.now()
@@ -90,35 +97,42 @@ class TimerTaskHandler extends TaskHandler {
         if (timeUntilPlay <= warningTime &&
             timeUntilPlay > 0 &&
             sendWarningNotifications) {
-          if (!_sentWarningNotifications.contains(i)) {
+          if (!_sentWarningNotifications[i]) {
             await _notificationService.showNotification(
-                'Warning', 'You need to play in $warningTime seconds');
-            _sentWarningNotifications.add(i);
+                'Warning', 'You need to play in $timeUntilPlay seconds');
+            _sentWarningNotifications[i] = true;
           }
         } else {
-          _sentWarningNotifications.remove(i);
+          _sentWarningNotifications[i] = false;
         }
 
         // Check for play time
         if (currentTime >= playTime &&
             currentTime < playTime + playDuration &&
             sendPlayTimeNotifications) {
-          if (!_sentPlayTimeNotifications.contains(i) &&
-              currentTime - playTime < 5) {
+          if (!_sentPlayTimeNotifications[i]) {
             await _notificationService.showNotification(
                 'Play Time', 'It\'s time to play!');
-            _sentPlayTimeNotifications.add(i);
+            _sentPlayTimeNotifications[i] = true;
           }
         } else {
-          _sentPlayTimeNotifications.remove(i);
+          if (currentTime >= playTime + playDuration) {
+            _sentPlayTimeNotifications[i] = false;
+          }
         }
       }
+
+      // Save notification tracking lists
+      await box.put('hasWarnedForPlayTimes', _sentWarningNotifications);
+      await box.put('hasNotifiedForPlayTimes', _sentPlayTimeNotifications);
     }
   }
 
   void resetNotificationTracking() {
-    _sentWarningNotifications.clear();
-    _sentPlayTimeNotifications.clear();
+    _sentWarningNotifications =
+        List.filled(_sentWarningNotifications.length, false);
+    _sentPlayTimeNotifications =
+        List.filled(_sentPlayTimeNotifications.length, false);
     FlutterForegroundTask.sendDataToMain('notificationTrackingReset');
   }
 
@@ -176,7 +190,7 @@ class ForegroundTimerService {
         print('Service is already running, restarting...');
         final result = await FlutterForegroundTask.restartService();
         print('Restart result: $result');
-        return result == ServiceRequestResult.success;
+        return result == ServiceRequestResult.success();
       } else {
         print('Starting new foreground service');
         final result = await FlutterForegroundTask.startService(
@@ -190,7 +204,7 @@ class ForegroundTimerService {
           callback: startCallback,
         );
         print('Start result: $result');
-        return result == ServiceRequestResult.success;
+        return result == ServiceRequestResult.success();
       }
     } catch (e) {
       print('Error starting foreground task: $e');
@@ -200,7 +214,7 @@ class ForegroundTimerService {
 
   static Future<bool> stopForegroundTask() async {
     final result = await FlutterForegroundTask.stopService();
-    return result == ServiceRequestResult.success;
+    return result == ServiceRequestResult.success();
   }
 
   static void resetNotificationTracking() {

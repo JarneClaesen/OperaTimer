@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:async';
 import 'package:hive/hive.dart';
 import '../services/foreground_timer_service.dart';
@@ -22,6 +23,9 @@ class TimerProvider with ChangeNotifier {
       'sendWarningNotifications';
   static const String sendPlayTimeNotificationsKey =
       'sendPlayTimeNotifications';
+  static const String currentOperaNameKey = 'currentOperaName';
+  static const String hasWarnedForPlayTimesKey = 'hasWarnedForPlayTimes';
+  static const String hasNotifiedForPlayTimesKey = 'hasNotifiedForPlayTimes';
 
   int _currentTime = 0;
   int _warningTime = 60; // Default: 1 minute before play time
@@ -44,11 +48,20 @@ class TimerProvider with ChangeNotifier {
   Timer? _debounceTimer;
 
   TimerProvider() {
+    _initializeHive();
     _notificationService.initialize();
     _loadSettings();
     _loadTimerState();
     startPeriodicUpdate();
     initForegroundTaskListener();
+  }
+
+  Future<void> _initializeHive() async {
+    // Initialize Hive if not already initialized
+    if (!Hive.isAdapterRegistered(0)) {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      Hive.init(appDocDir.path);
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -74,6 +87,11 @@ class TimerProvider with ChangeNotifier {
       _startTime = DateTime.fromMillisecondsSinceEpoch(startTimeMillis);
     }
     _playTimes = List<int>.from(box.get(playTimesKey, defaultValue: []));
+    _currentOperaName = box.get(currentOperaNameKey);
+    _hasWarnedForPlayTimes =
+    List<bool>.from(box.get(hasWarnedForPlayTimesKey, defaultValue: List<bool>.filled(_playTimes.length, false)));
+    _hasNotifiedForPlayTimes =
+    List<bool>.from(box.get(hasNotifiedForPlayTimesKey, defaultValue: List<bool>.filled(_playTimes.length, false)));
     notifyListeners();
   }
 
@@ -91,6 +109,9 @@ class TimerProvider with ChangeNotifier {
     await box.put(playDurationKey, _playDuration);
     await box.put(sendWarningNotificationsKey, _sendWarningNotifications);
     await box.put(sendPlayTimeNotificationsKey, _sendPlayTimeNotifications);
+    await box.put(currentOperaNameKey, _currentOperaName);
+    await box.put(hasWarnedForPlayTimesKey, _hasWarnedForPlayTimes);
+    await box.put(hasNotifiedForPlayTimesKey, _hasNotifiedForPlayTimes);
   }
 
   void startPeriodicUpdate() {
@@ -137,6 +158,7 @@ class TimerProvider with ChangeNotifier {
         !listEquals(_playTimes, playTimes)) {
       _currentOperaName = operaName;
       setPlayTimes(playTimes);
+      _saveTimerState(); // Save the current opera name
     }
     notifyListeners();
   }
@@ -144,10 +166,6 @@ class TimerProvider with ChangeNotifier {
   void setPlayTimes(List<int> playTimes) {
     if (!listEquals(_playTimes, playTimes)) {
       _playTimes = playTimes;
-      _currentTime = 0;
-      _isWarningActive = false;
-      _isPlayTimeActive = false;
-      _isRunning = false;
       _hasWarnedForPlayTimes = List.filled(playTimes.length, false);
       _hasNotifiedForPlayTimes = List.filled(playTimes.length, false);
       _saveTimerState();
@@ -237,7 +255,7 @@ class TimerProvider with ChangeNotifier {
 
   void initForegroundTaskListener() {
     FlutterForegroundTask.addTaskDataCallback((data) {
-      if (data == 'notificationTrackingReset') {
+      if (data is String && data == 'notificationTrackingReset') {
         print('Notification tracking reset confirmed');
       }
     });
@@ -250,19 +268,15 @@ class TimerProvider with ChangeNotifier {
   }
 
   Future<void> jumpForward() async {
-    if (_isRunning) {
-      await pauseTimer();
-      _currentTime += _jumpSeconds;
-      await startTimer();
-    }
+    _currentTime += _jumpSeconds;
+    _saveTimerState();
+    notifyListeners();
   }
 
   Future<void> jumpBackward() async {
-    if (_isRunning) {
-      await pauseTimer();
-      _currentTime = max(0, _currentTime - _jumpSeconds);
-      await startTimer();
-    }
+    _currentTime = max(0, _currentTime - _jumpSeconds);
+    _saveTimerState();
+    notifyListeners();
   }
 
   Future<void> debouncedJumpForward() async {
@@ -281,8 +295,7 @@ class TimerProvider with ChangeNotifier {
 
   void updateTimer() {
     if (_isRunning && _startTime != null) {
-      _currentTime =
-          DateTime.now().difference(_startTime!).inSeconds;
+      _currentTime = DateTime.now().difference(_startTime!).inSeconds;
       _saveTimerState();
       notifyListeners();
     }
