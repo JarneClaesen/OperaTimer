@@ -5,18 +5,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'dart:async';
 import 'package:hive/hive.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/foreground_timer_service.dart';
 import '../services/notification_service.dart';
 
 class TimerProvider with ChangeNotifier {
   static const String settingsBoxName = 'settings';
+  static const String timerStateBoxName = 'timerState';
+
   static const String warningTimeKey = 'warningTime';
   static const String playDurationKey = 'playDuration';
   static const String currentTimeKey = 'currentTime';
   static const String isRunningKey = 'isRunning';
-  static const String sendWarningNotificationsKey = 'sendWarningNotifications';
-  static const String sendPlayTimeNotificationsKey = 'sendPlayTimeNotifications';
+  static const String startTimeMillisKey = 'startTimeMillis';
+  static const String playTimesKey = 'playTimes';
+  static const String sendWarningNotificationsKey =
+      'sendWarningNotifications';
+  static const String sendPlayTimeNotificationsKey =
+      'sendPlayTimeNotifications';
 
   int _currentTime = 0;
   int _warningTime = 60; // Default: 1 minute before play time
@@ -38,7 +43,6 @@ class TimerProvider with ChangeNotifier {
   bool _showJumpButtons = true;
   Timer? _debounceTimer;
 
-
   TimerProvider() {
     _notificationService.initialize();
     _loadSettings();
@@ -51,8 +55,10 @@ class TimerProvider with ChangeNotifier {
     final box = await Hive.openBox(settingsBoxName);
     _warningTime = box.get(warningTimeKey, defaultValue: 60);
     _playDuration = box.get(playDurationKey, defaultValue: 10);
-    _sendWarningNotifications = box.get(sendWarningNotificationsKey, defaultValue: true);
-    _sendPlayTimeNotifications = box.get(sendPlayTimeNotificationsKey, defaultValue: true);
+    _sendWarningNotifications =
+        box.get(sendWarningNotificationsKey, defaultValue: true);
+    _sendPlayTimeNotifications =
+        box.get(sendPlayTimeNotificationsKey, defaultValue: true);
     _jumpSeconds = box.get('jumpSeconds', defaultValue: 1);
     _showGlowingBorders = box.get('showGlowingBorders', defaultValue: true);
     _showJumpButtons = box.get('showJumpButtons', defaultValue: true);
@@ -60,30 +66,31 @@ class TimerProvider with ChangeNotifier {
   }
 
   Future<void> _loadTimerState() async {
-    final prefs = await SharedPreferences.getInstance();
-    _currentTime = prefs.getInt('currentTime') ?? 0;
-    _isRunning = prefs.getBool('isRunning') ?? false;
-    int? startTimeMillis = prefs.getInt('startTimeMillis');
+    final box = await Hive.openBox(timerStateBoxName);
+    _currentTime = box.get(currentTimeKey, defaultValue: 0);
+    _isRunning = box.get(isRunningKey, defaultValue: false);
+    int? startTimeMillis = box.get(startTimeMillisKey);
     if (startTimeMillis != null) {
       _startTime = DateTime.fromMillisecondsSinceEpoch(startTimeMillis);
     }
+    _playTimes = List<int>.from(box.get(playTimesKey, defaultValue: []));
     notifyListeners();
   }
 
   Future<void> _saveTimerState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('currentTime', _currentTime);
-    await prefs.setBool('isRunning', _isRunning);
+    final box = await Hive.openBox(timerStateBoxName);
+    await box.put(currentTimeKey, _currentTime);
+    await box.put(isRunningKey, _isRunning);
     if (_startTime != null) {
-      await prefs.setInt('startTimeMillis', _startTime!.millisecondsSinceEpoch);
+      await box.put(startTimeMillisKey, _startTime!.millisecondsSinceEpoch);
     } else {
-      await prefs.remove('startTimeMillis');
+      await box.delete(startTimeMillisKey);
     }
-    await prefs.setStringList('playTimes', _playTimes.map((e) => e.toString()).toList());
-    await prefs.setInt('warningTime', _warningTime);
-    await prefs.setInt('playDuration', _playDuration);
-    await prefs.setBool('sendWarningNotifications', _sendWarningNotifications);
-    await prefs.setBool('sendPlayTimeNotifications', _sendPlayTimeNotifications);
+    await box.put(playTimesKey, _playTimes);
+    await box.put(warningTimeKey, _warningTime);
+    await box.put(playDurationKey, _playDuration);
+    await box.put(sendWarningNotificationsKey, _sendWarningNotifications);
+    await box.put(sendPlayTimeNotificationsKey, _sendPlayTimeNotifications);
   }
 
   void startPeriodicUpdate() {
@@ -126,7 +133,8 @@ class TimerProvider with ChangeNotifier {
   }
 
   void setCurrentOpera(String operaName, List<int> playTimes) {
-    if (_currentOperaName != operaName || !listEquals(_playTimes, playTimes)) {
+    if (_currentOperaName != operaName ||
+        !listEquals(_playTimes, playTimes)) {
       _currentOperaName = operaName;
       setPlayTimes(playTimes);
     }
@@ -146,7 +154,6 @@ class TimerProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
 
   Future<void> setWarningTime(int seconds) async {
     _warningTime = seconds;
@@ -176,7 +183,7 @@ class TimerProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void setJumpSeconds(int seconds) async {
+  Future<void> setJumpSeconds(int seconds) async {
     _jumpSeconds = seconds;
     final box = await Hive.openBox(settingsBoxName);
     await box.put('jumpSeconds', seconds);
@@ -190,7 +197,7 @@ class TimerProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future setShowJumpButtons(bool value) async {
+  Future<void> setShowJumpButtons(bool value) async {
     _showJumpButtons = value;
     final box = await Hive.openBox(settingsBoxName);
     await box.put('showJumpButtons', value);
@@ -242,44 +249,6 @@ class TimerProvider with ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> _scheduleAllNotifications() async {
-    await _cancelAllNotifications();
-    if (_startTime == null) return;
-
-    for (int i = 0; i < _playTimes.length; i++) {
-      int playTime = _playTimes[i];
-      int timeUntilPlay = playTime - _currentTime;
-
-      if (timeUntilPlay > 0) {
-        // Schedule warning notification
-        if (_sendWarningNotifications && timeUntilPlay > _warningTime) {
-          DateTime warningTime = _startTime!.add(Duration(seconds: playTime - _warningTime));
-          await _notificationService.scheduleNotification(
-            i * 2,
-            'Warning',
-            'You need to play in $_warningTime seconds',
-            warningTime,
-          );
-        }
-
-        // Schedule play time notification
-        if (_sendPlayTimeNotifications) {
-          DateTime playDateTime = _startTime!.add(Duration(seconds: playTime));
-          await _notificationService.scheduleNotification(
-            i * 2 + 1,
-            'Play Time',
-            'It\'s time to play!',
-            playDateTime,
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _cancelAllNotifications() async {
-    await _notificationService.cancelAllNotifications();
-  }
-
   Future<void> jumpForward() async {
     if (_isRunning) {
       await pauseTimer();
@@ -312,7 +281,8 @@ class TimerProvider with ChangeNotifier {
 
   void updateTimer() {
     if (_isRunning && _startTime != null) {
-      _currentTime = DateTime.now().difference(_startTime!).inSeconds;
+      _currentTime =
+          DateTime.now().difference(_startTime!).inSeconds;
       _saveTimerState();
       notifyListeners();
     }

@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/material.dart';
-import 'dart:isolate';
+import 'package:hive/hive.dart';
+import 'package:path_provider/path_provider.dart'; // For getApplicationDocumentsDirectory
+import 'dart:async';
 
 import 'notification_service.dart';
 
@@ -17,29 +17,31 @@ class TimerTaskHandler extends TaskHandler {
   Set<int> _sentWarningNotifications = {};
   Set<int> _sentPlayTimeNotifications = {};
 
-  @override
-  void onStart(DateTime timestamp) async {
-    await _notificationService.initialize();
-    // don't call _update timer here
-    print('Foreground service started');
+  static const String timerStateBoxName = 'timerState';
 
+  @override
+  Future<void> onStart(DateTime timestamp) async {
+    // Initialize Hive for background isolate
+    Directory appDocDir = await getApplicationDocumentsDirectory();
+    Hive.init(appDocDir.path);
+
+    await _notificationService.initialize();
+    print('Foreground service started');
   }
 
   @override
-  void onRepeatEvent(DateTime timestamp) async {
-    // This method is called each time the foreground task is run
+  Future<void> onRepeatEvent(DateTime timestamp) async {
     await _updateTimer();
   }
 
   @override
-  void onDestroy(DateTime timestamp) async {
-    // Clean up resources if needed
+  Future<void> onDestroy(DateTime timestamp) async {
     print('Foreground service destroyed');
+    await Hive.close(); // Close Hive when the service is destroyed
   }
 
   @override
   void onButtonPressed(String id) {
-    // Handle notification button press events here
     print('Notification button pressed: $id');
   }
 
@@ -50,24 +52,27 @@ class TimerTaskHandler extends TaskHandler {
     }
   }
 
-  Future _updateTimer() async {
-    final prefs = await SharedPreferences.getInstance();
-    bool isRunning = prefs.getBool('isRunning') ?? false;
-    int startTimeMillis = prefs.getInt('startTimeMillis') ?? 0;
+  Future<void> _updateTimer() async {
+    final box = await Hive.openBox(timerStateBoxName);
 
-    List<String> playTimesStrings = prefs.getStringList('playTimes') ?? [];
-    List<int> playTimes = playTimesStrings.map((e) => int.parse(e)).toList();
+    bool isRunning = box.get('isRunning', defaultValue: false);
+    int startTimeMillis = box.get('startTimeMillis') ?? 0;
 
-    int warningTime = prefs.getInt('warningTime') ?? 60;
-    int playDuration = prefs.getInt('playDuration') ?? 10;
-    bool sendWarningNotifications = prefs.getBool('sendWarningNotifications') ?? true;
-    bool sendPlayTimeNotifications = prefs.getBool('sendPlayTimeNotifications') ?? true;
+    List<dynamic> playTimesList = box.get('playTimes', defaultValue: []);
+    List<int> playTimes = List<int>.from(playTimesList);
 
-    if ((isRunning && startTimeMillis != 0)) {
-      int currentTime = isRunning
-          ? DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(startTimeMillis)).inSeconds
-          : prefs.getInt('currentTime') ?? 0;
-      await prefs.setInt('currentTime', currentTime);
+    int warningTime = box.get('warningTime', defaultValue: 60);
+    int playDuration = box.get('playDuration', defaultValue: 10);
+    bool sendWarningNotifications =
+    box.get('sendWarningNotifications', defaultValue: true);
+    bool sendPlayTimeNotifications =
+    box.get('sendPlayTimeNotifications', defaultValue: true);
+
+    if (isRunning && startTimeMillis != 0) {
+      int currentTime = DateTime.now()
+          .difference(DateTime.fromMillisecondsSinceEpoch(startTimeMillis))
+          .inSeconds;
+      await box.put('currentTime', currentTime);
       print('Foreground service: Updated time to $currentTime');
 
       // Update the notification
@@ -82,9 +87,12 @@ class TimerTaskHandler extends TaskHandler {
         int timeUntilPlay = playTime - currentTime;
 
         // Check for warning time
-        if (timeUntilPlay <= warningTime && timeUntilPlay > 0 && sendWarningNotifications) {
+        if (timeUntilPlay <= warningTime &&
+            timeUntilPlay > 0 &&
+            sendWarningNotifications) {
           if (!_sentWarningNotifications.contains(i)) {
-            await _notificationService.showNotification('Warning', 'You need to play in $warningTime seconds');
+            await _notificationService.showNotification(
+                'Warning', 'You need to play in $warningTime seconds');
             _sentWarningNotifications.add(i);
           }
         } else {
@@ -92,9 +100,13 @@ class TimerTaskHandler extends TaskHandler {
         }
 
         // Check for play time
-        if (currentTime >= playTime && currentTime < playTime + playDuration && sendPlayTimeNotifications) {
-          if (!_sentPlayTimeNotifications.contains(i) && currentTime - playTime < 5) {
-            await _notificationService.showNotification('Play Time', 'It\'s time to play!');
+        if (currentTime >= playTime &&
+            currentTime < playTime + playDuration &&
+            sendPlayTimeNotifications) {
+          if (!_sentPlayTimeNotifications.contains(i) &&
+              currentTime - playTime < 5) {
+            await _notificationService.showNotification(
+                'Play Time', 'It\'s time to play!');
             _sentPlayTimeNotifications.add(i);
           }
         } else {
@@ -107,25 +119,21 @@ class TimerTaskHandler extends TaskHandler {
   void resetNotificationTracking() {
     _sentWarningNotifications.clear();
     _sentPlayTimeNotifications.clear();
-    // Send data to main isolate to confirm reset
     FlutterForegroundTask.sendDataToMain('notificationTrackingReset');
   }
-
-
 
   String _formatTime(int seconds) {
     final hours = seconds ~/ 3600;
     final minutes = (seconds % 3600) ~/ 60;
     final remainingSeconds = seconds % 60;
-    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+    return '${hours.toString().padLeft(2, '0')}:'
+        '${minutes.toString().padLeft(2, '0')}:'
+        '${remainingSeconds.toString().padLeft(2, '0')}';
   }
 }
 
 class ForegroundTimerService {
   static Future<void> requestPermissions() async {
-    // Android 13+, you need to allow notification permission to display foreground service notification.
-    //
-    // iOS: If you need notification, ask for permission.
     final NotificationPermission notificationPermissionStatus =
     await FlutterForegroundTask.checkNotificationPermission();
     if (notificationPermissionStatus != NotificationPermission.granted) {
@@ -133,11 +141,7 @@ class ForegroundTimerService {
     }
 
     if (Platform.isAndroid) {
-      // Android 12+, there are restrictions on starting a foreground service.
-      //
-      // To restart the service on device reboot or unexpected problem, you need to allow below permission.
       if (!await FlutterForegroundTask.isIgnoringBatteryOptimizations) {
-        // This function requires `android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` permission.
         await FlutterForegroundTask.requestIgnoreBatteryOptimization();
       }
     }
@@ -158,7 +162,6 @@ class ForegroundTimerService {
       ),
       foregroundTaskOptions: ForegroundTaskOptions(
         eventAction: ForegroundTaskEventAction.repeat(1000),
-        autoRunOnMyPackageReplaced: true,
         autoRunOnBoot: true,
         allowWakeLock: true,
         allowWifiLock: true,
@@ -197,7 +200,6 @@ class ForegroundTimerService {
 
   static Future<bool> stopForegroundTask() async {
     final result = await FlutterForegroundTask.stopService();
-    // await FlutterForegroundTask.clearAllData();
     return result == ServiceRequestResult.success;
   }
 

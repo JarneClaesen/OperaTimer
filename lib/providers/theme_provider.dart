@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 class ThemeProvider with ChangeNotifier {
   static const String _colorKey = 'app_color';
+  static const String _boxName = 'theme_box';
 
   final List<Color> _predefinedColors = [
     Color(0xFF800020), // Burgundy (original color)
@@ -32,26 +33,32 @@ class ThemeProvider with ChangeNotifier {
   ];
 
   Color _currentColor;
+  late Box<int> _box;
 
   ThemeProvider() : _currentColor = Color(0xFF800020) {
-    _loadSavedColor();
+    _initHive();
   }
 
   List<Color> get predefinedColors => _predefinedColors;
 
   Color get currentColor => _currentColor;
 
+  Future<void> _initHive() async {
+    await Hive.initFlutter();
+    _box = await Hive.openBox<int>(_boxName);
+    await _loadSavedColor();
+  }
+
   Future<void> setColor(Color color) async {
     if (_currentColor != color) {
       _currentColor = color;
       notifyListeners();
-      _saveColor();
+      await _saveColor();
     }
   }
 
   Future<void> _loadSavedColor() async {
-    final prefs = await SharedPreferences.getInstance();
-    final colorValue = prefs.getInt(_colorKey);
+    final colorValue = _box.get(_colorKey);
     if (colorValue != null) {
       _currentColor = Color(colorValue);
       notifyListeners();
@@ -59,7 +66,6 @@ class ThemeProvider with ChangeNotifier {
   }
 
   Future<void> _saveColor() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_colorKey, _currentColor.value);
+    await _box.put(_colorKey, _currentColor.value);
   }
 }
