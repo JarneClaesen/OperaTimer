@@ -267,16 +267,21 @@ class TimerProvider with ChangeNotifier {
     super.dispose();
   }
 
+  // Workaround. Should be with FlutterForegroundTask.sendDataToTask('updateTimer');
+  // but doesnt work
   Future<void> jumpForward() async {
-    _currentTime += _jumpSeconds;
-    _saveTimerState();
-    notifyListeners();
+    if (_isRunning) {
+      await pauseTimer();
+      _currentTime += _jumpSeconds;
+      await startTimer();
+    }
   }
-
   Future<void> jumpBackward() async {
-    _currentTime = max(0, _currentTime - _jumpSeconds);
-    _saveTimerState();
-    notifyListeners();
+    if (_isRunning) {
+      await pauseTimer();
+      _currentTime = max(0, _currentTime - _jumpSeconds);
+      await startTimer();
+    }
   }
 
   Future<void> debouncedJumpForward() async {

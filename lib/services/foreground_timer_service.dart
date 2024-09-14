@@ -46,85 +46,103 @@ class TimerTaskHandler extends TaskHandler {
   }
 
   @override
-  void onDataReceived(dynamic data) {
-    if (data is String && data == 'resetNotificationTracking') {
-      resetNotificationTracking();
+  void onReceiveData(Object data) {
+    if (data is String) {
+      if (data == 'updateTimer') {
+        // Trigger an immediate update
+        _updateTimer();
+      } else if (data == 'resetNotificationTracking') {
+        resetNotificationTracking();
+      }
     }
   }
 
+  bool _isUpdating = false;
+
   Future<void> _updateTimer() async {
-    final box = await Hive.openBox(timerStateBoxName);
+    if (_isUpdating) return; // Prevent concurrent execution
+    _isUpdating = true;
 
-    bool isRunning = box.get('isRunning', defaultValue: false);
-    int startTimeMillis = box.get('startTimeMillis') ?? 0;
+    try {
+      final box = await Hive.openBox(timerStateBoxName);
 
-    List<dynamic> playTimesList = box.get('playTimes', defaultValue: []);
-    List<int> playTimes = List<int>.from(playTimesList);
+      bool isRunning = box.get('isRunning', defaultValue: false);
+      int startTimeMillis = box.get('startTimeMillis') ?? 0;
 
-    int warningTime = box.get('warningTime', defaultValue: 60);
-    int playDuration = box.get('playDuration', defaultValue: 10);
-    bool sendWarningNotifications =
-    box.get('sendWarningNotifications', defaultValue: true);
-    bool sendPlayTimeNotifications =
-    box.get('sendPlayTimeNotifications', defaultValue: true);
+      List<dynamic> playTimesList = box.get('playTimes', defaultValue: []);
+      List<int> playTimes = List<int>.from(playTimesList);
 
-    if (_sentWarningNotifications.length != playTimes.length) {
-      _sentWarningNotifications = List.filled(playTimes.length, false);
-    }
-    if (_sentPlayTimeNotifications.length != playTimes.length) {
-      _sentPlayTimeNotifications = List.filled(playTimes.length, false);
-    }
+      int warningTime = box.get('warningTime', defaultValue: 60);
+      int playDuration = box.get('playDuration', defaultValue: 10);
+      bool sendWarningNotifications =
+      box.get('sendWarningNotifications', defaultValue: true);
+      bool sendPlayTimeNotifications =
+      box.get('sendPlayTimeNotifications', defaultValue: true);
 
-    if (isRunning && startTimeMillis != 0) {
-      int currentTime = DateTime.now()
-          .difference(DateTime.fromMillisecondsSinceEpoch(startTimeMillis))
-          .inSeconds;
-      await box.put('currentTime', currentTime);
-      print('Foreground service: Updated time to $currentTime');
-
-      // Update the notification
-      await FlutterForegroundTask.updateService(
-        notificationTitle: 'Opera Timer',
-        notificationText: _formatTime(currentTime),
-      );
-
-      // Check for warnings and play times
-      for (int i = 0; i < playTimes.length; i++) {
-        int playTime = playTimes[i];
-        int timeUntilPlay = playTime - currentTime;
-
-        // Check for warning time
-        if (timeUntilPlay <= warningTime &&
-            timeUntilPlay > 0 &&
-            sendWarningNotifications) {
-          if (!_sentWarningNotifications[i]) {
-            await _notificationService.showNotification(
-                'Warning', 'You need to play in $timeUntilPlay seconds');
-            _sentWarningNotifications[i] = true;
-          }
-        } else {
-          _sentWarningNotifications[i] = false;
-        }
-
-        // Check for play time
-        if (currentTime >= playTime &&
-            currentTime < playTime + playDuration &&
-            sendPlayTimeNotifications) {
-          if (!_sentPlayTimeNotifications[i]) {
-            await _notificationService.showNotification(
-                'Play Time', 'It\'s time to play!');
-            _sentPlayTimeNotifications[i] = true;
-          }
-        } else {
-          if (currentTime >= playTime + playDuration) {
-            _sentPlayTimeNotifications[i] = false;
-          }
-        }
+      if (_sentWarningNotifications.length != playTimes.length) {
+        _sentWarningNotifications = List.filled(playTimes.length, false);
+      }
+      if (_sentPlayTimeNotifications.length != playTimes.length) {
+        _sentPlayTimeNotifications = List.filled(playTimes.length, false);
       }
 
-      // Save notification tracking lists
-      await box.put('hasWarnedForPlayTimes', _sentWarningNotifications);
-      await box.put('hasNotifiedForPlayTimes', _sentPlayTimeNotifications);
+      if (isRunning && startTimeMillis != 0) {
+        int currentTime = DateTime
+            .now()
+            .difference(DateTime.fromMillisecondsSinceEpoch(startTimeMillis))
+            .inSeconds;
+        await box.put('currentTime', currentTime);
+        print('Foreground service: Updated time to $currentTime');
+
+        // Update the notification
+        await FlutterForegroundTask.updateService(
+          notificationTitle: 'Opera Timer',
+          notificationText: _formatTime(currentTime),
+        );
+
+        // Check for warnings and play times
+        for (int i = 0; i < playTimes.length; i++) {
+          int playTime = playTimes[i];
+          int timeUntilPlay = playTime - currentTime;
+
+          // Check for warning time
+          if (timeUntilPlay <= warningTime &&
+              timeUntilPlay > 0 &&
+              sendWarningNotifications) {
+            if (!_sentWarningNotifications[i]) {
+              await _notificationService.showNotification(
+                  'Warning', 'You need to play in $timeUntilPlay seconds');
+              _sentWarningNotifications[i] = true;
+            }
+          } else {
+            _sentWarningNotifications[i] = false;
+          }
+
+          // Check for play time
+          if (currentTime >= playTime &&
+              currentTime < playTime + playDuration &&
+              sendPlayTimeNotifications) {
+            if (!_sentPlayTimeNotifications[i]) {
+              await _notificationService.showNotification(
+                  'Play Time', 'It\'s time to play!');
+              _sentPlayTimeNotifications[i] = true;
+            }
+          } else {
+            if (currentTime >= playTime + playDuration) {
+              _sentPlayTimeNotifications[i] = false;
+            }
+          }
+        }
+
+        // Save notification tracking lists
+        await box.put('hasWarnedForPlayTimes', _sentWarningNotifications);
+        await box.put('hasNotifiedForPlayTimes', _sentPlayTimeNotifications);
+      }
+    } catch (e, stackTrace) {
+      print('Error in _updateTimer: $e');
+      print(stackTrace);
+    } finally {
+      _isUpdating = false;
     }
   }
 
