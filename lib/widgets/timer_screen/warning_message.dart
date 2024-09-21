@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 class WarningMessage extends StatelessWidget {
   final String message;
+  final String buttonMessage;
   final VoidCallback onCheckAgain;
 
   const WarningMessage({
     Key? key,
     required this.message,
+    required this.buttonMessage,
     required this.onCheckAgain,
+
   }) : super(key: key);
 
   @override
@@ -44,11 +47,11 @@ class WarningMessage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                   ),
+                  onPressed: onCheckAgain,
                   child: Text(
-                    'Check Again',
+                    buttonMessage,
                     style: TextStyle(color: Theme.of(context).colorScheme.onTertiaryContainer),
                   ),
-                  onPressed: onCheckAgain,
                 ),
               ),
             ],
