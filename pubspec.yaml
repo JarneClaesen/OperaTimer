@@ -55,8 +55,13 @@ dependencies:
   android_intent: ^2.0.2
   url_launcher: ^6.3.0
   app_settings: ^5.1.1
+  mockito: ^5.4.4
+  mocktail: ^1.0.4
 
 dev_dependencies:
+  integration_test:
+    sdk: flutter
+
   flutter_test:
     sdk: flutter
 

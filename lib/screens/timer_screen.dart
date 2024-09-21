@@ -35,6 +35,7 @@ class _TimerScreenState extends State<TimerScreen> {
   bool _isBluetoothConnected = false;
   bool _hasNotificationPermission = false;
   bool _hasBatteryOptimizationPermission = false;
+  bool _isCheckComplete = false;
 
 
   @override
@@ -70,6 +71,7 @@ class _TimerScreenState extends State<TimerScreen> {
       _isBluetoothConnected = bluetoothConnection;
       _hasNotificationPermission = notificationPermission;
       _hasBatteryOptimizationPermission = batteryOptimizationPermission;
+      _isCheckComplete = true;
     });
   }
 
@@ -107,7 +109,7 @@ class _TimerScreenState extends State<TimerScreen> {
                         buttonMessage: "Check Again",
                         onCheckAgain: () => _checkDeviceStatus(),
                       ),
-                    if (!_hasNotificationPermission || !_hasBatteryOptimizationPermission)
+                    if (_isCheckComplete && (!_hasNotificationPermission || !_hasBatteryOptimizationPermission))
                       WarningMessage(
                         message: "The app needs notification and battery optimization permissions to function properly. Please grant these permissions in the app settings.",
                         buttonMessage: "Settings",
