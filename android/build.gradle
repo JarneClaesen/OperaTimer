@@ -9,6 +9,23 @@ allprojects {
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
+
+    // Compatibility shim for old plugins (e.g. flutter_dnd) written for AGP 7
+    // that don't declare a `namespace` or target a modern compileSdk, both of
+    // which AGP 8 requires. Registered before evaluationDependsOn below so it
+    // runs while the subproject is still configurable.
+    afterEvaluate { project ->
+        if (project.extensions.findByName("android") != null) {
+            project.android {
+                if (namespace == null) {
+                    namespace project.group.toString()
+                }
+                if (compileSdk == null || compileSdk < 34) {
+                    compileSdk 34
+                }
+            }
+        }
+    }
 }
 subprojects {
     project.evaluationDependsOn(":app")

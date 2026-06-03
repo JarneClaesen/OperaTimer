@@ -20,13 +20,13 @@ class TimerTaskHandler extends TaskHandler {
   static const String timerStateBoxName = 'timerState';
 
   @override
-  Future<void> onStart(DateTime timestamp) async {
+  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     // Initialize Hive for background isolate
     Directory appDocDir = await getApplicationDocumentsDirectory();
     Hive.init(appDocDir.path);
 
     await _notificationService.initialize();
-    print('Foreground service started');
+    print('Foreground service started by: ${starter.name}');
   }
 
   @override
@@ -35,13 +35,13 @@ class TimerTaskHandler extends TaskHandler {
   }
 
   @override
-  Future<void> onDestroy(DateTime timestamp) async {
-    print('Foreground service destroyed');
+  Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
+    print('Foreground service destroyed (isTimeout: $isTimeout)');
     await Hive.close(); // Close Hive when the service is destroyed
   }
 
   @override
-  void onButtonPressed(String id) {
+  void onNotificationButtonPressed(String id) {
     print('Notification button pressed: $id');
   }
 
@@ -208,21 +208,17 @@ class ForegroundTimerService {
         print('Service is already running, restarting...');
         final result = await FlutterForegroundTask.restartService();
         print('Restart result: $result');
-        return result == ServiceRequestResult.success();
+        return result is ServiceRequestSuccess;
       } else {
         print('Starting new foreground service');
         final result = await FlutterForegroundTask.startService(
           notificationTitle: 'Opera Timer',
           notificationText: 'Timer is running',
-          notificationIcon: const NotificationIconData(
-            resType: ResourceType.mipmap,
-            resPrefix: ResourcePrefix.ic,
-            name: 'launcher',
-          ),
           callback: startCallback,
+          notificationInitialRoute: '/timer', // Added from 8.17.0
         );
         print('Start result: $result');
-        return result == ServiceRequestResult.success();
+        return result is ServiceRequestSuccess;
       }
     } catch (e) {
       print('Error starting foreground task: $e');
@@ -232,7 +228,7 @@ class ForegroundTimerService {
 
   static Future<bool> stopForegroundTask() async {
     final result = await FlutterForegroundTask.stopService();
-    return result == ServiceRequestResult.success();
+    return result is ServiceRequestSuccess;
   }
 
   static void resetNotificationTracking() {

@@ -1,12 +1,11 @@
 import 'dart:io' show Platform;
 
-import 'package:android_intent/android_intent.dart';
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:sound_mode/utils/ringer_mode_statuses.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/timer_provider.dart';
 import '../providers/brightness_provider.dart';

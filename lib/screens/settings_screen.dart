@@ -103,7 +103,7 @@ class SettingsScreen extends StatelessWidget {
   Future<void> _exportData(BuildContext context) async {
     try {
       final jsonString = await exportToJson();
-      final result = await FilePicker.platform.getDirectoryPath();
+      final result = await FilePicker.getDirectoryPath();
       if (result != null) {
         String formattedDateTime = DateFormat('ddMMyyyy_HHmmss').format(DateTime.now());
         final fileName = 'OperaTimer_$formattedDateTime.json';
@@ -125,7 +125,7 @@ class SettingsScreen extends StatelessWidget {
 
   Future<void> _importData(BuildContext context) async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
