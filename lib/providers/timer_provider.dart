@@ -8,10 +8,17 @@ import 'dart:async';
 import 'package:hive/hive.dart';
 import '../services/foreground_timer_service.dart';
 import '../services/notification_service.dart';
+import '../utils/logger.dart';
 
-class TimerProvider with ChangeNotifier {
+class TimerProvider with ChangeNotifier, WidgetsBindingObserver {
   static const String settingsBoxName = 'settings';
+  // `timerState` is the control box: only the UI isolate writes it (run command,
+  // start instant, play times, opera name). `timerRuntime` is owned by the
+  // foreground-service isolate, which is the only writer of the per-tick
+  // `currentTime` and the notification-tracking flags. Splitting the two writers
+  // onto separate box files removes the concurrent multi-isolate write hazard.
   static const String timerStateBoxName = 'timerState';
+  static const String timerRuntimeBoxName = 'timerRuntime';
 
   static const String warningTimeKey = 'warningTime';
   static const String playDurationKey = 'playDuration';
@@ -40,20 +47,36 @@ class TimerProvider with ChangeNotifier {
   bool _sendPlayTimeNotifications = true;
   final NotificationService _notificationService = NotificationService();
   String? _currentOperaName;
-  List<bool> _hasWarnedForPlayTimes = [];
-  List<bool> _hasNotifiedForPlayTimes = [];
   DateTime? _startTime;
   bool _showGlowingBorders = true;
   bool _showJumpButtons = true;
-  Timer? _debounceTimer;
+  Timer? _periodicTimer;
+  void Function(Object)? _taskDataCallback;
 
   TimerProvider() {
+    WidgetsBinding.instance.addObserver(this);
     _initializeHive();
     _notificationService.initialize();
     _loadSettings();
     _loadTimerState();
     startPeriodicUpdate();
     initForegroundTaskListener();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // OEMs can freeze the main-isolate timer while backgrounded, so re-arm
+      // the UI tick and recompute immediately rather than waiting for the next
+      // (possibly never-arriving) fire.
+      startPeriodicUpdate();
+      updateTimer();
+      // The foreground service may have been killed while we were away; bring
+      // it back without restarting an already-healthy one.
+      if (_isRunning) {
+        ForegroundTimerService.ensureForegroundTaskRunning();
+      }
+    }
   }
 
   Future<void> _initializeHive() async {
@@ -80,7 +103,7 @@ class TimerProvider with ChangeNotifier {
 
   Future<void> _loadTimerState() async {
     final box = await Hive.openBox(timerStateBoxName);
-    _currentTime = box.get(currentTimeKey, defaultValue: 0);
+    final runtimeBox = await Hive.openBox(timerRuntimeBoxName);
     _isRunning = box.get(isRunningKey, defaultValue: false);
     int? startTimeMillis = box.get(startTimeMillisKey);
     if (startTimeMillis != null) {
@@ -88,16 +111,17 @@ class TimerProvider with ChangeNotifier {
     }
     _playTimes = List<int>.from(box.get(playTimesKey, defaultValue: []));
     _currentOperaName = box.get(currentOperaNameKey);
-    _hasWarnedForPlayTimes =
-    List<bool>.from(box.get(hasWarnedForPlayTimesKey, defaultValue: List<bool>.filled(_playTimes.length, false)));
-    _hasNotifiedForPlayTimes =
-    List<bool>.from(box.get(hasNotifiedForPlayTimesKey, defaultValue: List<bool>.filled(_playTimes.length, false)));
+    // currentTime lives in the service-owned runtime box; on a cold start this
+    // restores the last value the service persisted (e.g. while paused). When
+    // running, the periodic tick immediately recomputes it from _startTime.
+    _currentTime = runtimeBox.get(currentTimeKey, defaultValue: 0);
     notifyListeners();
   }
 
   Future<void> _saveTimerState() async {
+    // Writes only control fields. currentTime and notification tracking belong
+    // to the runtime box (service-owned) and are never written here.
     final box = await Hive.openBox(timerStateBoxName);
-    await box.put(currentTimeKey, _currentTime);
     await box.put(isRunningKey, _isRunning);
     if (_startTime != null) {
       await box.put(startTimeMillisKey, _startTime!.millisecondsSinceEpoch);
@@ -105,17 +129,23 @@ class TimerProvider with ChangeNotifier {
       await box.delete(startTimeMillisKey);
     }
     await box.put(playTimesKey, _playTimes);
-    await box.put(warningTimeKey, _warningTime);
-    await box.put(playDurationKey, _playDuration);
-    await box.put(sendWarningNotificationsKey, _sendWarningNotifications);
-    await box.put(sendPlayTimeNotificationsKey, _sendPlayTimeNotifications);
     await box.put(currentOperaNameKey, _currentOperaName);
-    await box.put(hasWarnedForPlayTimesKey, _hasWarnedForPlayTimes);
-    await box.put(hasNotifiedForPlayTimesKey, _hasNotifiedForPlayTimes);
+  }
+
+  /// Resets the service-owned runtime box (currentTime + tracking). Only safe to
+  /// call when the foreground service is NOT running — i.e. after stopping it —
+  /// so the two isolates never write this box concurrently.
+  Future<void> _resetRuntime() async {
+    final runtimeBox = await Hive.openBox(timerRuntimeBoxName);
+    final reset = List<bool>.filled(_playTimes.length, false);
+    await runtimeBox.put(currentTimeKey, 0);
+    await runtimeBox.put(hasWarnedForPlayTimesKey, reset);
+    await runtimeBox.put(hasNotifiedForPlayTimesKey, reset);
   }
 
   void startPeriodicUpdate() {
-    Timer.periodic(Duration(seconds: 1), (timer) {
+    _periodicTimer?.cancel();
+    _periodicTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       updateTimer();
     });
   }
@@ -166,10 +196,30 @@ class TimerProvider with ChangeNotifier {
   void setPlayTimes(List<int> playTimes) {
     if (!listEquals(_playTimes, playTimes)) {
       _playTimes = playTimes;
-      _hasWarnedForPlayTimes = List.filled(playTimes.length, false);
-      _hasNotifiedForPlayTimes = List.filled(playTimes.length, false);
       _saveTimerState();
+      // The warning/play-time schedule changed. If the service is live, hand it
+      // the new list over the data channel; otherwise clear the runtime box
+      // ourselves while no other isolate is writing it.
+      if (_isRunning) {
+        ForegroundTimerService.updatePlayTimes(playTimes);
+      } else {
+        _resetRuntime();
+      }
       notifyListeners();
+    }
+  }
+
+  /// Pushes the notification-affecting settings to the running service so
+  /// changes take effect on the fly (no restart). No-op when not running; the
+  /// service re-seeds from disk on its next start anyway.
+  void _pushSettingsToService() {
+    if (_isRunning) {
+      ForegroundTimerService.updateSettings(
+        warningTime: _warningTime,
+        playDuration: _playDuration,
+        sendWarningNotifications: _sendWarningNotifications,
+        sendPlayTimeNotifications: _sendPlayTimeNotifications,
+      );
     }
   }
 
@@ -177,6 +227,7 @@ class TimerProvider with ChangeNotifier {
     _warningTime = seconds;
     final box = await Hive.openBox(settingsBoxName);
     await box.put(warningTimeKey, seconds);
+    _pushSettingsToService();
     notifyListeners();
   }
 
@@ -184,6 +235,7 @@ class TimerProvider with ChangeNotifier {
     _playDuration = seconds;
     final box = await Hive.openBox(settingsBoxName);
     await box.put(playDurationKey, seconds);
+    _pushSettingsToService();
     notifyListeners();
   }
 
@@ -191,6 +243,7 @@ class TimerProvider with ChangeNotifier {
     _sendWarningNotifications = value;
     final box = await Hive.openBox(settingsBoxName);
     await box.put(sendWarningNotificationsKey, value);
+    _pushSettingsToService();
     notifyListeners();
   }
 
@@ -198,6 +251,7 @@ class TimerProvider with ChangeNotifier {
     _sendPlayTimeNotifications = value;
     final box = await Hive.openBox(settingsBoxName);
     await box.put(sendPlayTimeNotificationsKey, value);
+    _pushSettingsToService();
     notifyListeners();
   }
 
@@ -246,62 +300,78 @@ class TimerProvider with ChangeNotifier {
     _isPlayTimeActive = false;
     _isRunning = false;
     _startTime = null;
-    _hasWarnedForPlayTimes = List.filled(_playTimes.length, false);
-    _hasNotifiedForPlayTimes = List.filled(_playTimes.length, false);
     await _saveTimerState();
     notifyListeners();
     await ForegroundTimerService.stopForegroundTask();
+    // Service is stopped now, so we can safely clear its runtime box.
+    await _resetRuntime();
   }
 
   void initForegroundTaskListener() {
-    FlutterForegroundTask.addTaskDataCallback((data) {
+    _taskDataCallback = (data) {
       if (data is String && data == 'notificationTrackingReset') {
-        print('Notification tracking reset confirmed');
+        logDebug('Notification tracking reset confirmed');
       }
-    });
+    };
+    FlutterForegroundTask.addTaskDataCallback(_taskDataCallback!);
   }
 
   @override
   void dispose() {
-    FlutterForegroundTask.removeTaskDataCallback((data) {});
+    WidgetsBinding.instance.removeObserver(this);
+    _periodicTimer?.cancel();
+    if (_taskDataCallback != null) {
+      FlutterForegroundTask.removeTaskDataCallback(_taskDataCallback!);
+    }
     super.dispose();
   }
 
-  // Workaround. Should be with FlutterForegroundTask.sendDataToTask('updateTimer');
-  // but doesnt work
-  Future<void> jumpForward() async {
-    if (_isRunning) {
-      await pauseTimer();
-      _currentTime += _jumpSeconds;
-      await startTimer();
-    }
-  }
-  Future<void> jumpBackward() async {
-    if (_isRunning) {
-      await pauseTimer();
-      _currentTime = max(0, _currentTime - _jumpSeconds);
-      await startTimer();
-    }
+  Future<void> jumpForward() => _jumpBy(_jumpSeconds);
+
+  Future<void> jumpBackward() => _jumpBy(-_jumpSeconds);
+
+  /// Shifts the running timer by [deltaSeconds]. The UI's own clock updates
+  /// instantly; the foreground service is shifted by the same amount over the
+  /// data channel. The new start instant is also persisted to the control box,
+  /// so a later legitimate service (re)start re-reads it from disk and stays in
+  /// sync even if a single message is ever missed.
+  Future<void> _jumpBy(int deltaSeconds) async {
+    if (!_isRunning || _startTime == null) return;
+    final now = DateTime.now();
+    _currentTime = max(0, now.difference(_startTime!).inSeconds + deltaSeconds);
+    _startTime = now.subtract(Duration(seconds: _currentTime));
+    await _saveTimerState();
+    _updateWarningState();
+    notifyListeners();
+    FlutterForegroundTask.sendDataToTask(
+        'jump:${_startTime!.millisecondsSinceEpoch}');
   }
 
-  Future<void> debouncedJumpForward() async {
-    if (_debounceTimer?.isActive ?? false) return;
-    _debounceTimer = Timer(Duration(milliseconds: 500), () async {
-      await jumpForward();
-    });
-  }
-
-  Future<void> debouncedJumpBackward() async {
-    if (_debounceTimer?.isActive ?? false) return;
-    _debounceTimer = Timer(Duration(milliseconds: 500), () async {
-      await jumpBackward();
-    });
+  void _updateWarningState() {
+    bool warning = false;
+    bool playTime = false;
+    for (final time in _playTimes) {
+      final timeUntilPlay = time - _currentTime;
+      if (timeUntilPlay <= _warningTime && timeUntilPlay > 0) {
+        warning = true;
+      }
+      if (_currentTime >= time && _currentTime < time + _playDuration) {
+        playTime = true;
+      }
+    }
+    _isWarningActive = warning;
+    _isPlayTimeActive = playTime;
   }
 
   void updateTimer() {
     if (_isRunning && _startTime != null) {
-      _currentTime = DateTime.now().difference(_startTime!).inSeconds;
-      _saveTimerState();
+      // Clamp at zero so a backward wall-clock correction (NTP/DST) over a long
+      // session can't drive the displayed time negative.
+      _currentTime = max(0, DateTime.now().difference(_startTime!).inSeconds);
+      // The foreground-service isolate owns the per-second `currentTime`
+      // persistence; we only recompute it locally here to drive the UI and
+      // warning state, avoiding concurrent multi-isolate writes to the box.
+      _updateWarningState();
       notifyListeners();
     }
   }

@@ -29,7 +29,10 @@ class _JumpButtonState extends State<JumpButton> {
         _isDisabled = true;
       });
       widget.onPressed();
-      Future.delayed(Duration(milliseconds: 500), () {
+      // Jumping is now a cheap start-instant shift + message to the service
+      // (no foreground-service restart), so this only needs to debounce the
+      // double-fire of a single physical tap, not throttle real rapid presses.
+      Future.delayed(Duration(milliseconds: 50), () {
         if (mounted) {
           setState(() {
             _isDisabled = false;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:numberpicker/numberpicker.dart';
 import '../../providers/timer_provider.dart';
+import '../../utils/time_format.dart';
 import 'animated_play_pause_container.dart';
 import 'jump_button.dart';
 
@@ -8,6 +9,41 @@ class TimerControls extends StatelessWidget {
   final TimerProvider timerProvider;
 
   const TimerControls({Key? key, required this.timerProvider}) : super(key: key);
+
+  void _showJumpSecondsPicker(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        int currentValue = timerProvider.jumpSeconds;
+        return AlertDialog(
+          title: const Text('Set Jump Seconds'),
+          content: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return NumberPicker(
+                value: currentValue,
+                minValue: 1,
+                maxValue: 60,
+                onChanged: (value) => setState(() => currentValue = value),
+              );
+            },
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('CANCEL'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () {
+                timerProvider.setJumpSeconds(currentValue);
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,13 +60,9 @@ class TimerControls extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Consumer<TimerProvider>(
-            builder: (context, timerProvider, child) {
-              return Text(
-                '${timerProvider.currentTime ~/ 3600}:${(timerProvider.currentTime % 3600 ~/ 60).toString().padLeft(2, '0')}:${(timerProvider.currentTime % 60).toString().padLeft(2, '0')}',
-                style: TextStyle(fontSize: 48),
-              );
-            },
+          Text(
+            formatHms(timerProvider.currentTime),
+            style: TextStyle(fontSize: 48),
           ),
           SizedBox(height: 20),
           SizedBox(
@@ -95,7 +127,7 @@ class TimerControls extends StatelessWidget {
                       if (timerProvider.showJumpButtons) ...[
                         JumpButton(
                           icon: Icons.fast_rewind_rounded,
-                          onPressed: timerProvider.debouncedJumpBackward,
+                          onPressed: timerProvider.jumpBackward,
                           timerProvider: timerProvider,
                         ),
                         SizedBox(width: 16),
@@ -114,7 +146,7 @@ class TimerControls extends StatelessWidget {
                         SizedBox(width: 16),
                         JumpButton(
                           icon: Icons.fast_forward_rounded,
-                          onPressed: timerProvider.debouncedJumpForward,
+                          onPressed: timerProvider.jumpForward,
                           timerProvider: timerProvider,
                         ),
                       ],
@@ -129,17 +161,32 @@ class TimerControls extends StatelessWidget {
           if (timerProvider.showJumpButtons)
             Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  "Jump: ${timerProvider.jumpSeconds}s",
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+              child: Material(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => _showJumpSecondsPicker(context),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.edit_rounded,
+                          size: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          "Jump: ${timerProvider.jumpSeconds}s",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

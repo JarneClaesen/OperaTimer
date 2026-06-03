@@ -8,25 +8,28 @@ class BrightnessSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: EdgeInsets.only(left: 20, top: 4, right: 20, bottom: 40),
-      color: Theme.of(context).colorScheme.surfaceContainer,
+      color: colorScheme.surfaceContainer,
       child: Row(
         children: [
-          Icon(Icons.brightness_6_rounded),
+          Icon(
+            Icons.brightness_6_rounded,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          SizedBox(width: 8),
           Expanded(
+            // year2023: false opts into the current Material 3 "expressive"
+            // slider — a thick gapped track with the bar-style handle — instead
+            // of the legacy thin-track + round-dot look.
             child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 1.0,
-                thumbShape: RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                overlayShape: RoundSliderOverlayShape(overlayRadius: 26.0),
-              ),
+              data: SliderTheme.of(context).copyWith(year2023: false),
               child: Slider(
-                value: brightnessProvider.brightness,
-                onChanged: (value) {
-                  brightnessProvider.setBrightness(value);
-                },
-                min: 0.0,
+                value: brightnessProvider.brightness
+                    .clamp(BrightnessProvider.minBrightness, 1.0),
+                onChanged: (value) => brightnessProvider.setBrightness(value),
+                min: BrightnessProvider.minBrightness,
                 max: 1.0,
               ),
             ),

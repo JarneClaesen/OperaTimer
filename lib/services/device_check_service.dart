@@ -6,6 +6,8 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:volume_controller/volume_controller.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../utils/logger.dart';
+
 // Custom enum to replace the one from sound_mode
 enum RingerModeStatus { normal, silent, vibrate, unknown }
 
@@ -21,7 +23,7 @@ class DeviceCheckService {
     try {
       return await _dndChannel.invokeMethod<int>('getCurrentInterruptionFilter');
     } catch (e) {
-      print("Failed to get DND interruption filter: $e");
+      logDebug("Failed to get DND interruption filter: $e");
       return null;
     }
   }
@@ -57,7 +59,7 @@ class DeviceCheckService {
         return RingerModeStatus.unknown;
       }
     } catch (e) {
-      print("Failed to get ringer status: $e");
+      logDebug("Failed to get ringer status: $e");
       return RingerModeStatus.unknown;
     }
   }
@@ -66,10 +68,15 @@ class DeviceCheckService {
     try {
       return await _volumeController.getVolume();
     } catch (e) {
-      print("Failed to get speaker volume: $e");
+      logDebug("Failed to get speaker volume: $e");
       return 0.0;
     }
   }
+
+  // A2DP (Advanced Audio Distribution Profile) service UUID — exposed by
+  // audio sinks such as headphones and speakers.
+  static final Guid _a2dpServiceUuid =
+      Guid('0000110A-0000-1000-8000-00805F9B34FB');
 
   Future<bool> checkBluetoothConnection() async {
     try {
@@ -80,57 +87,38 @@ class DeviceCheckService {
 
       // Check if Bluetooth is supported and enabled
       if (await FlutterBluePlus.isSupported == false) {
-        print("Bluetooth is not supported on this device");
+        logDebug("Bluetooth is not supported on this device");
         return false;
       }
 
       final adapterState = await FlutterBluePlus.adapterState.first;
       if (adapterState != BluetoothAdapterState.on) {
-        print("Bluetooth is not enabled");
+        logDebug("Bluetooth is not enabled");
         return false;
       }
 
-      // Start scanning with timeout
-      await FlutterBluePlus.startScan(timeout: Duration(seconds: 5));
+      // Query devices already connected to the system (by any app or the OS).
+      // This is near-instant and avoids the previous multi-second active scan.
+      // The A2DP service filter is honoured on iOS (required for privacy) and
+      // ignored on Android, where we fall back to a device-name heuristic.
+      final connectedDevices =
+          await FlutterBluePlus.systemDevices([_a2dpServiceUuid]);
 
-      // Use a completer to handle the async scan results
-      final completer = Completer<bool>();
-      StreamSubscription? subscription;
-
-      subscription = FlutterBluePlus.scanResults.listen((results) {
-        for (final result in results) {
-          if (_isLikelyAudioDevice(result.device)) {
-            subscription?.cancel();
-            completer.complete(true);
-            return;
-          }
-        }
-      });
-
-      // Set timeout
-      Timer(Duration(seconds: 6), () {
-        if (!completer.isCompleted) {
-          subscription?.cancel();
-          completer.complete(false);
-        }
-      });
-
-      return await completer.future;
-    } catch (e) {
-      print("Bluetooth scan error: $e");
-      return false;
-    } finally {
-      try {
-        await FlutterBluePlus.stopScan();
-      } catch (e) {
-        // Ignore errors when stopping scan
+      if (Platform.isIOS) {
+        // iOS only returns devices exposing the requested A2DP service, so any
+        // result is already an audio device.
+        return connectedDevices.isNotEmpty;
       }
+      return connectedDevices.any(_isLikelyAudioDevice);
+    } catch (e) {
+      logDebug("Bluetooth connection check error: $e");
+      return false;
     }
   }
 
   // Helper method to check if device is likely an audio device
   bool _isLikelyAudioDevice(BluetoothDevice device) {
-    final name = device.name.toLowerCase();
+    final name = device.platformName.toLowerCase();
     return name.contains('headphone') ||
         name.contains('earphone') ||
         name.contains('speaker') ||
@@ -138,11 +126,11 @@ class DeviceCheckService {
         name.contains('sound');
   }
 
+  // Performs a deeper check by connecting and inspecting the device's GATT
+  // services. Requires an active connection, so it is only suitable when the
+  // device is already connected to this app.
   Future<bool> isAudioDevice(BluetoothDevice device) async {
-    // Check device name
-    if (device.name.toLowerCase().contains('headphone') ||
-        device.name.toLowerCase().contains('earphone') ||
-        device.name.toLowerCase().contains('speaker')) {
+    if (_isLikelyAudioDevice(device)) {
       return true;
     }
 
@@ -151,13 +139,13 @@ class DeviceCheckService {
       List<BluetoothService> services = await device.discoverServices();
       for (BluetoothService service in services) {
         // Check for A2DP (Advanced Audio Distribution Profile) or HSP (Headset Profile)
-        if (service.uuid == Guid('0000110A-0000-1000-8000-00805F9B34FB') || // A2DP
+        if (service.uuid == _a2dpServiceUuid || // A2DP
             service.uuid == Guid('00001108-0000-1000-8000-00805F9B34FB')) { // HSP
           return true;
         }
       }
     } catch (e) {
-      print("Failed to discover services: $e");
+      logDebug("Failed to discover services: $e");
     }
 
     return false;

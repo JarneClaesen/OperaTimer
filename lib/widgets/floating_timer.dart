@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/timer_provider.dart';
+import '../utils/time_format.dart';
 
 class FloatingTimer extends StatelessWidget {
   final VoidCallback onTap;
@@ -45,7 +46,7 @@ class FloatingTimer extends StatelessWidget {
                         ),
                         SizedBox(width: 12),
                         Text(
-                          _formatTime(currentTime),
+                          formatHms(currentTime),
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w500,
@@ -63,7 +64,7 @@ class FloatingTimer extends StatelessWidget {
                           ),
                           SizedBox(width: 12),
                           Text(
-                            _formatTime(nextPlayTime),
+                            formatHms(nextPlayTime),
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w500,
@@ -80,12 +81,5 @@ class FloatingTimer extends StatelessWidget {
         );
       },
     );
-  }
-
-  String _formatTime(int seconds) {
-    final hours = seconds ~/ 3600;
-    final minutes = (seconds % 3600) ~/ 60;
-    final remainingSeconds = seconds % 60;
-    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 }

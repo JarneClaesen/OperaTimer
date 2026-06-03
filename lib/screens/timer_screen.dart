@@ -1,15 +1,9 @@
-import 'dart:io' show Platform;
-
-import 'package:android_intent_plus/android_intent.dart';
-import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../providers/timer_provider.dart';
 import '../providers/brightness_provider.dart';
-import '../services/foreground_timer_service.dart';
 import '../services/permission_service.dart';
 import '../widgets/glowing_borders.dart';
 import '../widgets/timer_screen/settings_dialog.dart';
@@ -18,7 +12,7 @@ import '../widgets/timer_screen/timer_controls.dart';
 import '../widgets/timer_screen/brightness_slider.dart';
 import '../widgets/timer_screen/warning_message.dart';
 import '../services/device_check_service.dart';
-import 'package:package_info_plus/package_info_plus.dart';
+import 'settings_screen.dart';
 
 
 class TimerScreen extends StatefulWidget {
@@ -36,19 +30,35 @@ class _TimerScreenState extends State<TimerScreen> {
   bool _hasBatteryOptimizationPermission = false;
   bool _isCheckComplete = false;
 
+  // Captured while the element is still active so dispose() doesn't have to do
+  // an (unsafe) inherited-widget lookup on a deactivated element.
+  TimerProvider? _timerProvider;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       Provider.of<TimerProvider>(context, listen: false).setOnTimerScreen(true);
       _checkDeviceStatus();
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _timerProvider = Provider.of<TimerProvider>(context, listen: false);
+  }
+
+  @override
   void dispose() {
-    Provider.of<TimerProvider>(context, listen: false).setOnTimerScreen(false);
+    // setOnTimerScreen notifies listeners, which can't run during the unmount
+    // (the widget tree is locked). Defer it to after the current frame so the
+    // floating timer rebuilds cleanly once we've left this screen.
+    final provider = _timerProvider;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      provider?.setOnTimerScreen(false);
+    });
     super.dispose();
   }
 
@@ -63,6 +73,10 @@ class _TimerScreenState extends State<TimerScreen> {
     // Check permission statuses after requesting
     final notificationPermission = await Permission.notification.status.isGranted;
     final batteryOptimizationPermission = await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+
+    // The checks above include a multi-second Bluetooth lookup; bail out if the
+    // user left the screen in the meantime.
+    if (!mounted) return;
 
     setState(() {
       _isNormalMode = soundMode == RingerModeStatus.normal;
@@ -83,13 +97,22 @@ class _TimerScreenState extends State<TimerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        Provider.of<TimerProvider>(context, listen: false).setOnTimerScreen(false);
-        return true;
-      },
-      child: Scaffold(
-        appBar: AppBar(title: Text('Timer')),
+    // `setOnTimerScreen(false)` is handled in dispose(), which runs whenever
+    // this screen is popped, so no WillPopScope/PopScope is needed here.
+    return Scaffold(
+        appBar: AppBar(
+          title: Text('Timer'),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.settings_rounded),
+              tooltip: 'Settings',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SettingsScreen()),
+              ),
+            ),
+          ],
+        ),
         body: Consumer2<TimerProvider, BrightnessProvider>(
           builder: (context, timerProvider, brightnessProvider, child) {
             return Stack(
@@ -138,7 +161,9 @@ class _TimerScreenState extends State<TimerScreen> {
                   Positioned.fill(
                     child: IgnorePointer(
                       child: GlowingBorders(
-                        color: timerProvider.isWarning ? Colors.orange : Colors.green,
+                        // Play-time (green) takes visual priority over an
+                        // upcoming-warning (orange) when both are active.
+                        color: timerProvider.isPlayTime ? Colors.green : Colors.orange,
                       ),
                     ),
                   ),
@@ -146,10 +171,8 @@ class _TimerScreenState extends State<TimerScreen> {
             );
           },
         ),
-      ),
     );
   }
-
 }
 
 

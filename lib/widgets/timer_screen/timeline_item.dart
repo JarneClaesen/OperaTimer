@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/time_format.dart';
 
 class TimelineItem extends StatelessWidget {
   final int time;
@@ -14,41 +15,32 @@ class TimelineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hours = time ~/ 3600;
-    final minutes = (time % 3600) ~/ 60;
-    final seconds = time % 60;
+    final statusColor =
+        isPast ? Colors.green : (isCurrent ? Colors.orange : Colors.grey);
 
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      child: Row(
-        children: [
-          Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isPast ? Colors.green : (isCurrent ? Colors.orange : Colors.grey),
-            ),
+    // Matches the per-item Card surface used by the opera list.
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      child: ListTile(
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+        leading: Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: statusColor,
           ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isPast ? Colors.green.withOpacity(0.1) : (isCurrent ? Colors.orange.withOpacity(0.1) : Colors.grey.withOpacity(0.1)),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                  color: isPast ? Colors.green : (isCurrent ? Colors.orange : Colors.grey),
-                ),
-              ),
-            ),
+        ),
+        title: Text(
+          formatHms(time),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+            color: statusColor,
           ),
-        ],
+        ),
       ),
     );
   }

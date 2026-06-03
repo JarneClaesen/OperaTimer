@@ -1,7 +1,5 @@
 // lib/main.dart
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -49,11 +47,9 @@ void main() async {
   );
 
   runApp(const MyApp());
-
-  Timer.periodic(Duration(seconds: 1), (timer) {
-    final timerProvider = Provider.of<TimerProvider>(navigatorKey.currentContext!, listen: false);
-    timerProvider.updateTimer();
-  });
+  // The per-second UI tick is owned by TimerProvider (startPeriodicUpdate);
+  // a second timer here only double-fired notifyListeners and risked a
+  // null-deref on navigatorKey.currentContext before the first route built.
 }
 
 class MyApp extends StatelessWidget {

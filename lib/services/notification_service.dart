@@ -1,7 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz;
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -33,7 +31,7 @@ class NotificationService {
     );
   }
 
-  Future<void> showNotification(String title, String body) async {
+  Future<void> showNotification(String title, String body, {int id = 0}) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
     AndroidNotificationDetails(
       'opera_timer_alert_channel',
@@ -49,7 +47,7 @@ class NotificationService {
       iOS: iOSPlatformChannelSpecifics,
     );
     await _flutterLocalNotificationsPlugin.show(
-      id: 0,
+      id: id,
       title: title,
       body: body,
       notificationDetails: platformChannelSpecifics,
