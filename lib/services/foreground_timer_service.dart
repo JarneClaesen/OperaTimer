@@ -19,6 +19,16 @@ class TimerTaskHandler extends TaskHandler {
   List<bool> _sentWarningNotifications = [];
   List<bool> _sentPlayTimeNotifications = [];
 
+  // The ongoing foreground-service notification occupies Android notification id
+  // 1000 (flutter_foreground_task's default serviceId). Alert ids must avoid
+  // that slot: the first play time's warning, posted as id 1000 + 0, would land
+  // on the service notification instead of its own — it only buzzes, never
+  // reaches the drawer or a paired watch, and the next per-second updateService()
+  // call overwrites it. Base the alert ids well clear of 1000 and of each other
+  // so every warning/play-time alert gets its own notification slot.
+  static const int _warningNotificationBaseId = 100000;
+  static const int _playTimeNotificationBaseId = 200000;
+
   // Working state, kept in memory. It is seeded from the UI-owned control box at
   // onStart, then kept fresh through messages (jump:/playtimes:). We never re-read
   // the control box after startup because, across isolates, our open copy would
@@ -222,7 +232,7 @@ class TimerTaskHandler extends TaskHandler {
         if (!_sentWarningNotifications[i]) {
           await _notificationService.showNotification(
               'Warning', 'You need to play in $timeUntilPlay seconds',
-              id: 1000 + i);
+              id: _warningNotificationBaseId + i);
           _sentWarningNotifications[i] = true;
         }
       } else {
@@ -236,7 +246,7 @@ class TimerTaskHandler extends TaskHandler {
         if (!_sentPlayTimeNotifications[i]) {
           await _notificationService.showNotification(
               'Play Time', 'It\'s time to play!',
-              id: 2000 + i);
+              id: _playTimeNotificationBaseId + i);
           _sentPlayTimeNotifications[i] = true;
         }
       } else {
