@@ -291,11 +291,22 @@ class ForegroundTimerService {
   static Future<void> initialize() async {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'opera_timer_channel',
+        // New channel id on purpose: Android freezes a channel's importance once
+        // it has been created, so bumping importance on the old
+        // 'opera_timer_channel' would be ignored on devices that already have it.
+        channelId: 'opera_timer_channel_v2',
         channelName: 'Opera Timer Notifications',
         channelDescription: 'Notifications for Opera Timer app',
-        channelImportance: NotificationChannelImportance.LOW,
-        priority: NotificationPriority.LOW,
+        // LOW importance buckets the ongoing timer under "Silent", which most
+        // Android builds hide/minimize on the lock screen. DEFAULT keeps it
+        // visible on the lock screen (like Google Clock); onlyAlertOnce plus no
+        // sound/vibration stop it from alerting on every per-second update.
+        channelImportance: NotificationChannelImportance.DEFAULT,
+        priority: NotificationPriority.DEFAULT,
+        onlyAlertOnce: true,
+        playSound: false,
+        enableVibration: false,
+        visibility: NotificationVisibility.VISIBILITY_PUBLIC,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: true,
