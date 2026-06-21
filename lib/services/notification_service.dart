@@ -16,7 +16,7 @@ class NotificationService {
 
   Future<void> initialize() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-    AndroidInitializationSettings('@mipmap/ic_launcher');
+    AndroidInitializationSettings('ic_stat_opera');
     final DarwinInitializationSettings initializationSettingsDarwin =
     DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -58,7 +58,7 @@ class NotificationService {
       _alertChannelName,
       importance: Importance.max,
       priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
+      icon: 'ic_stat_opera',
     );
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
     DarwinNotificationDetails();
@@ -86,7 +86,7 @@ class NotificationService {
           _alertChannelName,
           importance: Importance.max,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: 'ic_stat_opera',
         ),
         iOS: DarwinNotificationDetails(),
       ),

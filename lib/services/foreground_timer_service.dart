@@ -352,6 +352,12 @@ class ForegroundTimerService {
         final result = await FlutterForegroundTask.startService(
           notificationTitle: 'Opera Timer',
           notificationText: 'Timer is running',
+          // Use the monochrome status-bar icon instead of the launcher icon,
+          // which Android masks down to a plain white circle.
+          notificationIcon: const NotificationIcon(
+            metaDataName:
+                'com.orchestratimer.orchestra_timer.NOTIFICATION_ICON',
+          ),
           callback: startCallback,
           notificationInitialRoute: '/timer', // Added from 8.17.0
         );
