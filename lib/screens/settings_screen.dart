@@ -476,11 +476,14 @@ class _SettingSwitch extends StatelessWidget {
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       secondary: _RowBadge(icon: icon),
       title: Text(title),
-      subtitle: Text(subtitle),
-      subtitleTextStyle: Theme.of(context)
-          .textTheme
-          .bodySmall
-          ?.copyWith(color: scheme.onSurfaceVariant),
+      // SwitchListTile has no subtitleTextStyle, so style the subtitle directly.
+      subtitle: Text(
+        subtitle,
+        style: Theme.of(context)
+            .textTheme
+            .bodySmall
+            ?.copyWith(color: scheme.onSurfaceVariant),
+      ),
       value: value,
       onChanged: onChanged,
     );
