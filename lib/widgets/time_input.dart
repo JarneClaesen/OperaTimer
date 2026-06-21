@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class TimeInput extends StatefulWidget {
   final Function(int) onTimeChanged;
@@ -39,49 +40,59 @@ class _TimeInputState extends State<TimeInput> {
   void _showNumberPad(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      showDragHandle: true,
+      // Without this the sheet is capped at ~half the screen and the keypad
+      // pushes the "Set time" button off the bottom with no way to reach it.
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXl)),
+      ),
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
-            return Container(
-              padding: EdgeInsets.all(16.0),
-              child: Column(
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                8,
+                20,
+                20 + MediaQuery.of(context).viewPadding.bottom,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildTimeDisplay(),
-                  SizedBox(height: 20),
+                  _buildTimeDisplay(context),
+                  const SizedBox(height: 24),
                   GridView.count(
                     crossAxisCount: 3,
                     shrinkWrap: true,
-                    mainAxisSpacing: 8.0,
-                    crossAxisSpacing: 8.0,
-                    childAspectRatio: 2.0,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 12.0,
+                    crossAxisSpacing: 12.0,
+                    childAspectRatio: 1.4,
                     children: [
                       ...List.generate(9, (index) {
                         return _buildDigitButton((index + 1).toString(), setState);
                       }),
+                      const SizedBox.shrink(),
                       _buildDigitButton('0', setState),
                       _buildBackspaceButton(setState),
                     ],
                   ),
-                  SizedBox(height: 20),
-                  Container(
+                  const SizedBox(height: 24),
+                  SizedBox(
                     width: double.infinity,
-                    child: TextButton(
+                    child: FilledButton.icon(
                       onPressed: () {
                         widget.onTimeChanged(_parseTime(_input));
                         Navigator.pop(context);
                       },
-                      child: Text('Set Time'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer, backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                        padding: EdgeInsets.symmetric(vertical: 16.0),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                      ),
+                      icon: const Icon(Icons.check_rounded),
+                      label: const Text('Set time'),
                     ),
                   ),
                 ],
+                ),
               ),
             );
           },
@@ -90,67 +101,76 @@ class _TimeInputState extends State<TimeInput> {
     );
   }
 
-  Widget _buildTimeDisplay() {
+  Widget _buildTimeDisplay(BuildContext context) {
     final paddedInput = _input.padLeft(6, '0');
     final hours = paddedInput.substring(0, 2);
     final minutes = paddedInput.substring(2, 4);
     final seconds = paddedInput.substring(4, 6);
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final bool empty = _input.isEmpty;
 
     return Text(
       '$hours:$minutes:$seconds',
-      style: TextStyle(fontSize: 48),
+      style: text.displaySmall?.copyWith(
+        color: empty
+            ? scheme.onSurface.withValues(alpha: 0.35)
+            : scheme.onSurface,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _showNumberPad(context),
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 16.0),
-        child: Text(
-          'Set Time',
-          style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.primary),
-        ),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FilledButton.tonalIcon(
+        onPressed: () => _showNumberPad(context),
+        icon: const Icon(Icons.schedule_rounded),
+        label: const Text('Add play time'),
       ),
     );
   }
 
   Widget _buildDigitButton(String digit, StateSetter setState) {
-    return Container(
-      height: 50,
-      width: 50,
-      child: TextButton(
-        onPressed: () {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: scheme.surfaceContainerHighest,
+      shape: AppTheme.shapeMd,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
           setState(() {
             _addDigit(digit);
           });
         },
-        child: Text(digit, style: TextStyle(fontSize: 24)),
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.all(8.0),
-          minimumSize: Size(0, 0),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        child: Center(
+          child: Text(
+            digit,
+            style: text.headlineSmall?.copyWith(color: scheme.onSurface),
+          ),
         ),
       ),
     );
   }
 
   Widget _buildBackspaceButton(StateSetter setState) {
-    return Container(
-      height: 50,
-      width: 50,
-      child: TextButton(
-        onPressed: () {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.secondaryContainer,
+      shape: AppTheme.shapeMd,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
           setState(() {
             _removeDigit();
           });
         },
-        child: Icon(Icons.backspace, size: 24),
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.all(8.0),
-          minimumSize: Size(0, 0),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        child: Center(
+          child: Icon(Icons.backspace_rounded,
+              size: 24, color: scheme.onSecondaryContainer),
         ),
       ),
     );

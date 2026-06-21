@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 class WarningMessage extends StatelessWidget {
   final String message;
@@ -10,52 +11,41 @@ class WarningMessage extends StatelessWidget {
     required this.message,
     required this.buttonMessage,
     required this.onCheckAgain,
-
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
     return Padding(
-      padding: EdgeInsets.all(8),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.tertiaryContainer,
-          borderRadius: BorderRadius.circular(16),
+          color: scheme.tertiaryContainer,
+          borderRadius: AppTheme.brLg,
         ),
-        child: Padding(
-          padding: EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Icon(Icons.warning_rounded, color: Theme.of(context).colorScheme.onTertiaryContainer),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  message,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onTertiaryContainer),
-                ),
+        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: scheme.onTertiaryContainer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: text.bodyMedium?.copyWith(color: scheme.onTertiaryContainer),
               ),
-              SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onTertiaryContainer.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  onPressed: onCheckAgain,
-                  child: Text(
-                    buttonMessage,
-                    style: TextStyle(color: Theme.of(context).colorScheme.onTertiaryContainer),
-                  ),
-                ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: scheme.onTertiaryContainer,
+                backgroundColor:
+                    scheme.onTertiaryContainer.withValues(alpha: 0.16),
               ),
-            ],
-          ),
+              onPressed: onCheckAgain,
+              child: Text(buttonMessage),
+            ),
+          ],
         ),
       ),
     );

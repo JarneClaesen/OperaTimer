@@ -23,6 +23,12 @@
             android:foregroundServiceType="dataSync|remoteMessaging"
             android:exported="false" />
 
+        <!-- White silhouette status-bar icon for the foreground-service
+             notification, referenced from Dart via NotificationIcon(metaDataName). -->
+        <meta-data
+            android:name="com.orchestratimer.orchestra_timer.NOTIFICATION_ICON"
+            android:resource="@drawable/ic_stat_opera" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

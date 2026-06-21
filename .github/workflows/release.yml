@@ -1,0 +1,63 @@
+name: Release APK
+
+# Builds a release APK on GitHub's infrastructure and publishes it as a
+# GitHub Release. The release build is debug-signed (see
+# android/app/build.gradle), so no signing secrets are needed to produce an
+# installable APK.
+#
+# Triggers when the version-bearing commit lands on this release branch. The
+# job creates the v${VERSION} tag and release itself via the Actions token.
+on:
+  push:
+    branches:
+      - claude/first-notification-delivery-kv3xc4
+
+permissions:
+  contents: write
+
+env:
+  VERSION: 1.2.4
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.44.2'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: >-
+          flutter build apk --release
+          --build-name=${{ env.VERSION }}
+          --build-number=${{ github.run_number }}
+
+      - name: Rename APK
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "dist/OperaTimer${{ env.VERSION }}.apk"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: dist/OperaTimer${{ env.VERSION }}.apk

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/timer_provider.dart';
+import '../theme/app_theme.dart';
 import '../utils/time_format.dart';
 
 class FloatingTimer extends StatelessWidget {
@@ -18,6 +19,8 @@ class FloatingTimer extends StatelessWidget {
           return SizedBox.shrink();
         }
 
+        final scheme = Theme.of(context).colorScheme;
+        final text = Theme.of(context).textTheme;
         final currentTime = timerProvider.currentTime;
         final nextPlayTime = timerProvider.nextPlayTime;
 
@@ -25,16 +28,16 @@ class FloatingTimer extends StatelessWidget {
           bottom: 40,
           left: 16,
           right: 16,
-          child: GestureDetector(
-            onTap: onTap,
-            child: Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              color: Theme.of(context).colorScheme.surfaceVariant,
+          child: Material(
+            color: scheme.secondaryContainer,
+            shape: AppTheme.shapeLg,
+            elevation: 3,
+            shadowColor: Colors.black.withValues(alpha: 0.3),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -42,15 +45,14 @@ class FloatingTimer extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.timer_rounded,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: scheme.onSecondaryContainer,
                         ),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Text(
                           formatHms(currentTime),
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          style: text.titleLarge?.copyWith(
+                            color: scheme.onSecondaryContainer,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ],
@@ -60,15 +62,17 @@ class FloatingTimer extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.play_circle_outline_rounded,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            size: 20,
+                            color: scheme.onSecondaryContainer
+                                .withValues(alpha: 0.75),
                           ),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 8),
                           Text(
                             formatHms(nextPlayTime),
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            style: text.titleMedium?.copyWith(
+                              color: scheme.onSecondaryContainer
+                                  .withValues(alpha: 0.75),
+                              fontFeatures: const [FontFeature.tabularFigures()],
                             ),
                           ),
                         ],

@@ -15,6 +15,8 @@ import 'package:orchestra_timer/widgets/screen_with_floating_timer.dart';
 import 'package:provider/provider.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
+import 'theme/app_theme.dart';
+
 import 'models/opera.dart';
 import 'models/setlist.dart';
 
@@ -68,15 +70,8 @@ class MyApp extends StatelessWidget {
           return MaterialApp(
             navigatorKey: navigatorKey,
             title: 'Orchestra Timer',
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: themeProvider.currentColor),
-            ),
-            darkTheme: ThemeData(
-                colorScheme: ColorScheme.fromSeed(
-                    seedColor: themeProvider.currentColor, //Burgundy
-                    brightness: Brightness.dark
-                )
-            ),
+            theme: AppTheme.light(themeProvider.currentColor),
+            darkTheme: AppTheme.dark(themeProvider.currentColor),
             themeMode: ThemeMode.dark,
             home: ScreenWithFloatingTimer(
               child: HomeScreen(),
