@@ -82,10 +82,10 @@ class _JumpButtonState extends State<JumpButton> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onLongPress: () => _showJumpSecondsPicker(context), // Add long press handler
-      child: IconButton(
+      child: IconButton.filledTonal(
+        iconSize: 26,
         icon: Icon(widget.icon),
         onPressed: _isDisabled ? null : _handlePress,
-        color: _isDisabled ? Colors.grey : null,
       ),
     );
   }

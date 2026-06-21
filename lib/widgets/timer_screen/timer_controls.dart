@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:numberpicker/numberpicker.dart';
 import '../../providers/timer_provider.dart';
+import '../../theme/app_theme.dart';
 import '../../utils/time_format.dart';
 import 'animated_play_pause_container.dart';
 import 'jump_button.dart';
@@ -16,7 +17,9 @@ class TimerControls extends StatelessWidget {
       builder: (BuildContext dialogContext) {
         int currentValue = timerProvider.jumpSeconds;
         return AlertDialog(
-          title: const Text('Set Jump Seconds'),
+          shape: AppTheme.shapeLg,
+          icon: const Icon(Icons.unfold_more_rounded),
+          title: const Text('Jump amount'),
           content: StatefulBuilder(
             builder: (BuildContext context, StateSetter setState) {
               return NumberPicker(
@@ -29,11 +32,11 @@ class TimerControls extends StatelessWidget {
           ),
           actions: <Widget>[
             TextButton(
-              child: const Text('CANCEL'),
+              child: const Text('Cancel'),
               onPressed: () => Navigator.of(dialogContext).pop(),
             ),
-            TextButton(
-              child: const Text('OK'),
+            FilledButton(
+              child: const Text('Save'),
               onPressed: () {
                 timerProvider.setJumpSeconds(currentValue);
                 Navigator.of(dialogContext).pop();
@@ -45,76 +48,95 @@ class TimerControls extends StatelessWidget {
     );
   }
 
+  void _confirmReset(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: AppTheme.shapeLg,
+          icon: const Icon(Icons.replay_rounded),
+          title: const Text('Reset timer?'),
+          content: const Text('This returns the timer to 00:00:00.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            FilledButton.tonal(
+              child: const Text('Reset'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                timerProvider.stopTimer();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final showReset = timerProvider.isRunning || timerProvider.currentTime != 0;
+
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
+        color: scheme.surfaceContainerHigh,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXl)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Grab handle — a small expressive affordance for the control sheet.
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'ELAPSED',
+            style: text.labelMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+              letterSpacing: 1.5,
+            ),
+          ),
           Text(
             formatHms(timerProvider.currentTime),
-            style: TextStyle(fontSize: 48),
+            style: text.displaySmall?.copyWith(
+              color: scheme.onSurface,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 16),
           SizedBox(
-            height: 80,
+            height: 88,
             child: Row(
               children: [
                 // Left slot for the reset button. Mirrored by an equal-width
                 // spacer on the right so the play/jump cluster stays centered.
                 SizedBox(
                   width: 56,
-                  child: (timerProvider.isRunning || timerProvider.currentTime != 0)
+                  child: showReset
                       ? Center(
-                          child: Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.tertiaryContainer,
-                              shape: BoxShape.circle,
-                            ),
+                          child: Material(
+                            color: scheme.tertiaryContainer,
+                            shape: const CircleBorder(),
+                            clipBehavior: Clip.antiAlias,
                             child: IconButton(
-                              padding: EdgeInsets.zero,
                               icon: Icon(
-                                Icons.refresh_rounded,
-                                color: Theme.of(context).colorScheme.onTertiaryContainer,
-                                size: 30,
+                                Icons.replay_rounded,
+                                color: scheme.onTertiaryContainer,
+                                size: 28,
                               ),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return AlertDialog(
-                                      title: Text('Reset Timer'),
-                                      content: Text('Are you sure you want to reset the timer?'),
-                                      actions: <Widget>[
-                                        TextButton(
-                                          child: Text('Cancel'),
-                                          onPressed: () {
-                                            Navigator.of(context).pop();
-                                          },
-                                        ),
-                                        TextButton(
-                                          child: Text('Reset'),
-                                          onPressed: () {
-                                            Navigator.of(context).pop();
-                                            timerProvider.stopTimer();
-                                          },
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                              },
+                              onPressed: () => _confirmReset(context),
                             ),
                           ),
                         )
@@ -130,7 +152,7 @@ class TimerControls extends StatelessWidget {
                           onPressed: timerProvider.jumpBackward,
                           timerProvider: timerProvider,
                         ),
-                        SizedBox(width: 16),
+                        const SizedBox(width: 16),
                       ],
                       AnimatedPlayPauseContainer(
                         isRunning: timerProvider.isRunning,
@@ -143,7 +165,7 @@ class TimerControls extends StatelessWidget {
                         },
                       ),
                       if (timerProvider.showJumpButtons) ...[
-                        SizedBox(width: 16),
+                        const SizedBox(width: 16),
                         JumpButton(
                           icon: Icons.fast_forward_rounded,
                           onPressed: timerProvider.jumpForward,
@@ -160,30 +182,26 @@ class TimerControls extends StatelessWidget {
           ),
           if (timerProvider.showJumpButtons)
             Padding(
-              padding: EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: 10),
               child: Material(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
+                color: scheme.surfaceContainerHighest,
+                shape: const StadiumBorder(),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: () => _showJumpSecondsPicker(context),
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.edit_rounded,
-                          size: 12,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        SizedBox(width: 4),
+                        Icon(Icons.tune_rounded,
+                            size: 15, color: scheme.onSurfaceVariant),
+                        const SizedBox(width: 6),
                         Text(
-                          "Jump: ${timerProvider.jumpSeconds}s",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                          "Jump ${timerProvider.jumpSeconds}s",
+                          style: text.labelLarge
+                              ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
                       ],
                     ),
