@@ -54,9 +54,12 @@ class AppTheme {
     final scheme = ColorScheme.fromSeed(
       seedColor: seed,
       brightness: brightness,
-      // The expressive variant pushes chroma for a more energetic palette than
-      // the default tonal-spot scheme.
-      dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+      // `vibrant` keeps the PRIMARY anchored to the chosen seed hue while
+      // pushing chroma for an energetic, expressive palette. (The `expressive`
+      // variant deliberately rotates the primary hue away from the seed — e.g.
+      // a burgundy seed comes out blue — which isn't what we want when the user
+      // has explicitly picked an app colour.)
+      dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
     );
 
     final textTheme = _emphasizedTextTheme(brightness);
