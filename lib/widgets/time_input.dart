@@ -41,6 +41,9 @@ class _TimeInputState extends State<TimeInput> {
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
+      // Without this the sheet is capped at ~half the screen and the keypad
+      // pushes the "Set time" button off the bottom with no way to reach it.
+      isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXl)),
       ),
@@ -54,7 +57,8 @@ class _TimeInputState extends State<TimeInput> {
                 20,
                 20 + MediaQuery.of(context).viewPadding.bottom,
               ),
-              child: Column(
+              child: SingleChildScrollView(
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildTimeDisplay(context),
@@ -88,6 +92,7 @@ class _TimeInputState extends State<TimeInput> {
                     ),
                   ),
                 ],
+                ),
               ),
             );
           },
