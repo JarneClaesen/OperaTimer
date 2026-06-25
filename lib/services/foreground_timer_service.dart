@@ -84,6 +84,9 @@ class TimerTaskHandler extends TaskHandler {
         _loadBoolList('hasNotifiedForPlayTimes', _playTimes.length);
 
     await _notificationService.initialize();
+    // Absorb the "first notification from a fresh isolate doesn't alert" quirk
+    // so the first real warning/play-time alert of this run vibrates.
+    await _notificationService.primeAlertChannel();
     _ready = true;
     logDebug('Foreground service started by: ${starter.name}');
   }

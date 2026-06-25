@@ -13,6 +13,8 @@ class NotificationService {
   // creation below so they always refer to the same Android channel.
   static const String _alertChannelId = 'opera_timer_alert_channel';
   static const String _alertChannelName = 'Opera Timer Notifications';
+  // Reserved id for the throwaway priming notification (see primeAlertChannel).
+  static const int _primeNotificationId = 987654;
 
   Future<void> initialize() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -92,6 +94,37 @@ class NotificationService {
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
+  }
+
+  /// Warms up the alert channel's alerting for the current isolate.
+  ///
+  /// On many Android builds the FIRST notification a freshly-started process or
+  /// isolate posts to a channel is delivered without alerting (no vibration, no
+  /// heads-up, no wearable buzz), and only subsequent ones vibrate. Because the
+  /// foreground-service isolate is recreated every time the timer starts, the
+  /// first warning/play-time alert of each run was the casualty.
+  ///
+  /// Posting one `silent` notification (which suppresses vibration/sound for
+  /// that single post regardless of the channel) and immediately cancelling it
+  /// makes that throwaway the isolate's first post, so the first *real* alert is
+  /// no longer first and alerts normally.
+  Future<void> primeAlertChannel() async {
+    const AndroidNotificationDetails android = AndroidNotificationDetails(
+      _alertChannelId,
+      _alertChannelName,
+      importance: Importance.min,
+      priority: Priority.min,
+      silent: true,
+      icon: 'ic_stat_opera',
+    );
+    const NotificationDetails details = NotificationDetails(android: android);
+    await _flutterLocalNotificationsPlugin.show(
+      id: _primeNotificationId,
+      title: null,
+      body: null,
+      notificationDetails: details,
+    );
+    await _flutterLocalNotificationsPlugin.cancel(id: _primeNotificationId);
   }
 
   Future<void> cancelNotification(int id) async {
